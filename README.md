@@ -8,7 +8,12 @@ Each commit represents one reviewable step, with tests alongside behavior.
 
 ## Development
 
-Requires JDK 21+ and sbt. Run `sbt test` to verify the project.
+The exact Temurin JDK 21 version is pinned in `mise.toml`. With mise and sbt installed:
+
+```sh
+mise install
+mise exec -- sbt test
+```
 
 ## Protocol references
 
