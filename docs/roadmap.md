@@ -13,7 +13,7 @@ storage; introduce it when the first persistent feature lands.
 
 ## Milestones
 
-1. **Server foundation**: reproducible build, validated configuration, health,
+1. **Server foundation (implemented)**: reproducible build, validated configuration, health,
    `com.atproto.server.describeServer`, and XRPC errors.
 2. **Protocol primitives**: validated identifiers (DID, handle, NSID, AT URI,
    record key, TID), canonical DAG-CBOR, CID, CAR, and crypto with test vectors.

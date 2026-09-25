@@ -26,6 +26,20 @@ Configuration is read from the environment and validated at startup:
 The service DID is derived as `did:web:<PDS_HOSTNAME>`. The localhost default
 is for development only; public DID document hosting arrives with identity support.
 
+## Run
+
+```sh
+mise exec -- sbt run
+curl http://127.0.0.1:3000/_health
+curl http://127.0.0.1:3000/xrpc/com.atproto.server.describeServer
+```
+
+Stop with Ctrl-C. Ember's managed resource releases the HTTP listener on shutdown.
+The health endpoint reports process liveness, not federation readiness.
+`describeServer` follows the [official lexicon](https://github.com/bluesky-social/atproto/blob/main/lexicons/com/atproto/server/describeServer.json).
+It currently advertises an empty list of available handle domains. Accounts,
+authentication, DID document serving, persistence and federation are not implemented.
+
 ## Protocol references
 
 - [AT Protocol specifications](https://atproto.com/specs/atp)
