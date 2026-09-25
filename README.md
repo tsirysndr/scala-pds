@@ -15,6 +15,17 @@ mise install
 mise exec -- sbt test
 ```
 
+Configuration is read from the environment and validated at startup:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PDS_HOST` | `127.0.0.1` | HTTP bind address |
+| `PDS_PORT` | `3000` | HTTP port, 1–65535 |
+| `PDS_HOSTNAME` | `localhost` | Public DNS hostname, without scheme, port or path |
+
+The service DID is derived as `did:web:<PDS_HOSTNAME>`. The localhost default
+is for development only; public DID document hosting arrives with identity support.
+
 ## Protocol references
 
 - [AT Protocol specifications](https://atproto.com/specs/atp)
