@@ -26,6 +26,19 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test
     ),
     Compile / run / fork := true,
+    assembly / mainClass := Some("pds.Main"),
+    assembly / assemblyJarName := "scala-pds.jar",
+    assembly / assemblyMergeStrategy := {
+      // dnsjava's resolver SPI would replace the JVM default; we call it directly.
+      case PathList("META-INF", "services", "java.net.spi.InetAddressResolverProvider") =>
+        MergeStrategy.discard
+      case PathList("META-INF", "services", _*)      => MergeStrategy.concat
+      case PathList("META-INF", "versions", _*)      => MergeStrategy.first
+      case PathList("META-INF", _*)                  => MergeStrategy.discard
+      case PathList("module-info.class")             => MergeStrategy.discard
+      case "reference.conf" | "application.conf"     => MergeStrategy.concat
+      case _                                         => MergeStrategy.first
+    },
     Test / fork := true,
     Test / javaOptions += "-Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
   )

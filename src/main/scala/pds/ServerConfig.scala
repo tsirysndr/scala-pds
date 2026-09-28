@@ -45,7 +45,9 @@ object ServerConfig:
       publicUrl <- resolvePublicUrl(env, hostname, port.value)
       userDomain = env.getOrElse("PDS_USER_DOMAIN", hostname).toLowerCase(Locale.ROOT)
       _ <- Either.cond(validHostname(userDomain), (), "PDS_USER_DOMAIN must be a DNS hostname")
-      didMethod = env.getOrElse("PDS_DID_METHOD", "plc")
+      // A loopback development server cannot publish to a public directory.
+      didMethod = env.getOrElse("PDS_DID_METHOD",
+        if Set("localhost", "127.0.0.1").contains(hostname) then "web" else "plc")
       _ <- Either.cond(Set("plc", "web").contains(didMethod), (),
         "PDS_DID_METHOD must be 'plc' or 'web'")
       plcDirectory <- origin(env.getOrElse("PDS_PLC_DIRECTORY", "https://plc.directory"))
