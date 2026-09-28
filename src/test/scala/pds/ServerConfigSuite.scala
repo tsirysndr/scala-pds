@@ -34,3 +34,54 @@ class ServerConfigSuite extends munit.FunSuite:
   test("invalid bind address fails validation") {
     assert(ServerConfig.fromEnv(Map("PDS_HOST" -> "http://localhost")).isLeft)
   }
+
+  test("the public URL defaults to loopback HTTP in development and HTTPS otherwise") {
+    assertEquals(ServerConfig.fromEnv(Map.empty).toOption.get.publicUrl, "http://localhost:3000")
+    assertEquals(
+      ServerConfig.fromEnv(Map("PDS_HOSTNAME" -> "pds.example.com")).toOption.get.publicUrl,
+      "https://pds.example.com")
+  }
+
+  test("only canonical origins are accepted as the public URL") {
+    List("https://PDS.example.com", "https://pds.example.com/", "https://pds.example.com:443",
+      "http://pds.example.com", "pds.example.com", "https://pds.example.com/path"
+    ).foreach(value =>
+      assert(ServerConfig.fromEnv(Map("PDS_PUBLIC_URL" -> value)).isLeft, value))
+    assertEquals(
+      ServerConfig.fromEnv(Map("PDS_PUBLIC_URL" -> "https://pds.example.com:8443"))
+        .map(_.publicUrl), Right("https://pds.example.com:8443"))
+  }
+
+  test("optional services are validated when supplied") {
+    assert(ServerConfig.fromEnv(Map("PDS_APPVIEW_URL" -> "not a url")).isLeft)
+    assert(ServerConfig.fromEnv(Map("PDS_DID_METHOD" -> "sov")).isLeft)
+    assert(ServerConfig.fromEnv(Map("PDS_ADMIN_PASSWORD" -> "short")).isLeft)
+    assert(ServerConfig.fromEnv(Map("PDS_BLOB_MAX_SIZE" -> "10")).isLeft)
+    assert(ServerConfig.fromEnv(Map("PDS_RELAY_URLS" -> "https://relay.example.com,bogus")).isLeft)
+    val config = ServerConfig.fromEnv(Map(
+      "PDS_RELAY_URLS" -> "https://relay1.example.com, https://relay2.example.com",
+      "PDS_APPVIEW_URL" -> "https://appview.example.com",
+      "PDS_APPVIEW_DID" -> "did:web:appview.example.com"
+    )).toOption.get
+    assertEquals(config.relayUrls.length, 2)
+    assertEquals(config.appviewDid, Some("did:web:appview.example.com"))
+  }
+
+  test("handle domains follow the user domain and default to the hostname") {
+    assertEquals(
+      ServerConfig.fromEnv(Map("PDS_HOSTNAME" -> "pds.example.com")).toOption.get.availableUserDomains,
+      Vector(".pds.example.com"))
+    assertEquals(
+      ServerConfig.fromEnv(Map("PDS_HOSTNAME" -> "pds.example.com", "PDS_USER_DOMAIN" -> "Example.com"))
+        .toOption.get.availableUserDomains, Vector(".example.com"))
+  }
+
+  test("signup and invite policy come from the environment") {
+    val defaults = ServerConfig.fromEnv(Map.empty).toOption.get
+    assert(defaults.signupEnabled)
+    assert(!defaults.inviteRequired)
+    val strict = ServerConfig.fromEnv(
+      Map("PDS_SIGNUP_ENABLED" -> "false", "PDS_INVITE_REQUIRED" -> "true")).toOption.get
+    assert(!strict.signupEnabled)
+    assert(strict.inviteRequired)
+  }
