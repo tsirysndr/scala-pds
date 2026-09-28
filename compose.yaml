@@ -1,0 +1,33 @@
+services:
+  pds:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PDS_HOSTNAME: ${PDS_HOSTNAME:-localhost}
+      PDS_PUBLIC_URL: ${PDS_PUBLIC_URL:-}
+      PDS_MASTER_KEY: ${PDS_MASTER_KEY:?set PDS_MASTER_KEY}
+      PDS_ADMIN_PASSWORD: ${PDS_ADMIN_PASSWORD:-}
+      PDS_DATABASE_URL: jdbc:postgresql://postgres:5432/pds
+      PDS_DATABASE_USER: pds
+      PDS_DATABASE_PASSWORD: ${PDS_DATABASE_PASSWORD:?set PDS_DATABASE_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pds
+      POSTGRES_USER: pds
+      POSTGRES_PASSWORD: ${PDS_DATABASE_PASSWORD:?set PDS_DATABASE_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pds -d pds"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres:

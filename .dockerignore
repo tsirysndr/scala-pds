@@ -1,0 +1,10 @@
+.git
+.github
+target
+project/target
+project/project
+frontend/node_modules
+data
+docs/_site
+*.sqlite3
+*.sqlite3-*
