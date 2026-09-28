@@ -54,14 +54,16 @@ object Email:
           "Token is invalid or has expired")
 
   def enqueue(connection: Connection, to: String, purpose: String, token: String, now: Long): Unit =
+    send(connection, to, purpose, Json.obj("token" -> Json.fromString(token)), now)
+
+  def send(connection: Connection, to: String, purpose: String, fields: Json, now: Long): Unit =
     Sql.update(connection,
       """INSERT INTO email_outbox(id, payload, available_at, created_at) VALUES (?, ?, ?, ?)""",
       UUID.randomUUID().toString,
       Json.obj(
         "to" -> Json.fromString(to),
-        "purpose" -> Json.fromString(purpose),
-        "token" -> Json.fromString(token)
-      ).noSpaces,
+        "purpose" -> Json.fromString(purpose)
+      ).deepMerge(fields).noSpaces,
       now, now)
 
   /** Drains pending messages; failures are retried with a backoff. */
