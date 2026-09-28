@@ -8,8 +8,8 @@ Do not claim interoperability until checked against independent AT Protocol tool
 
 Use Scala 3, Cats Effect for resource lifecycles, http4s for HTTP, and Circe for
 JSON. Start as one sbt module, keeping protocol, HTTP, and persistence concerns
-separate as they emerge. Use SQLite for initial durable account and repository
-storage; introduce it when the first persistent feature lands.
+separate as they emerge. Use PostgreSQL for durable account and repository
+storage, with a managed connection pool and versioned SQL migrations.
 
 ## Milestones
 

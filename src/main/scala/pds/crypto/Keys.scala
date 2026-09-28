@@ -77,17 +77,18 @@ object PublicKey:
     if did.startsWith("did:key:") then fromMultibase(did.drop("did:key:".length)) else None
 
   def fromCompressed(curve: Curve, bytes: Array[Byte]): Option[PublicKey] =
-    if bytes.length != curve.fieldWidth + 1 then None
-    else
-      try
-        val point = curve.parameters.getCurve.decodePoint(bytes)
-        if point.isValid && !point.isInfinity then Some(PublicKey(curve, point)) else None
-      catch case _: IllegalArgumentException | _: ArithmeticException => None
+    if bytes.length != curve.fieldWidth + 1 then None else decode(curve, bytes)
 
   def fromCoordinates(curve: Curve, x: Array[Byte], y: Array[Byte]): Option[PublicKey] =
     val width = curve.fieldWidth
     if x.length != width || y.length != width then None
-    else fromCompressed(curve, Array(0x04.toByte) ++ x ++ y).flatMap(key => Some(key))
+    else decode(curve, Array(0x04.toByte) ++ x ++ y)
+
+  private def decode(curve: Curve, bytes: Array[Byte]): Option[PublicKey] =
+    try
+      val point = curve.parameters.getCurve.decodePoint(bytes).normalize()
+      if point.isValid && !point.isInfinity then Some(PublicKey(curve, point)) else None
+    catch case _: IllegalArgumentException | _: ArithmeticException => None
 
 final case class PrivateKey(curve: Curve, scalar: BigInt):
   lazy val publicKey: PublicKey =
