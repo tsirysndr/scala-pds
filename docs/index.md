@@ -1,0 +1,88 @@
+---
+layout: layouts/home.vto
+title: scala-pds
+description: An AT Protocol Personal Data Server in Scala 3, with PostgreSQL persistence and a zero-configuration SQLite fallback.
+---
+
+scala-pds is an [AT Protocol](https://atproto.com) Personal Data Server built
+on Scala 3, Cats Effect and http4s. It stores accounts and repositories in
+PostgreSQL, or in a single SQLite file when nothing is configured, and serves
+71 XRPC methods alongside an OAuth authorization server and a React account
+interface.
+
+**In development: not yet a fully federating PDS.** Signed repositories,
+sessions, OAuth with DPoP, blobs, the firehose and administrative APIs are
+implemented and tested; see the [compatibility matrix](/compatibility/) for
+exact coverage and the [roadmap](/roadmap/) for what remains.
+
+<div class="card-grid">
+
+<div class="card">
+
+### Start a server
+
+One command, no configuration: accounts and repositories land in
+`data/scala-pds.sqlite3`.
+
+[Get started](/get-started/)
+
+</div>
+
+<div class="card">
+
+### Host real accounts
+
+Hosted `did:plc` and `did:web` identities, handle verification, sessions, app
+passwords and email security flows.
+
+[Hosted identities](/identity/)
+
+</div>
+
+<div class="card">
+
+### Authorize applications
+
+A full OAuth 2.1 authorization server: pushed authorization requests, PKCE,
+DPoP-bound tokens and scoped consent.
+
+[OAuth](/oauth/)
+
+</div>
+
+<div class="card">
+
+### Federate
+
+Signed Merkle search tree commits, verified CAR export and import, and a
+WebSocket firehose other services can follow.
+
+[Repositories](/repositories/)
+
+</div>
+
+</div>
+
+## What is implemented
+
+- **Protocol primitives** — identifier syntax, deterministic DAG-CBOR, CIDv1,
+  CAR archives, the Merkle search tree and ECDSA over secp256k1 and P-256, all
+  checked against the upstream interoperability fixtures.
+- **Storage** — checksummed migrations over PostgreSQL or SQLite, one schema
+  for both, epoch-millisecond timestamps and a pooled connection lifecycle.
+- **Identity** — `did:plc` genesis and update operations, `did:web` documents,
+  DNS and HTTPS handle resolution with a bounded cache.
+- **Accounts** — registration, sessions, refresh rotation, app passwords,
+  invite codes, email flows, TOTP, deactivation, deletion and takedowns.
+- **Repositories** — signed commits, compare-and-swap writes, batched
+  `applyWrites`, record listing, CAR export and verified import.
+- **Blobs** — content-addressed upload and download with reference checks.
+- **Federation** — a durable event sequence and `subscribeRepos` over
+  WebSocket, plus relay crawl requests at startup.
+- **Services** — an authenticated proxy to AppViews and labelers, private
+  preferences, and the administrative and moderation APIs.
+
+## License
+
+[MIT](https://github.com/tsirysndr/scala-pds/blob/main/LICENSE). Vendored
+conformance fixtures retain their upstream CC0 license.
