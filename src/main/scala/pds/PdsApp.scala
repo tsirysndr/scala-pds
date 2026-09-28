@@ -97,19 +97,18 @@ object PdsApp:
     val app = Web.routes(env) <+> Oauth.routes(env, client) <+> routes
 
     HttpApp[IO] { request =>
-      Xrpc.recover {
-        for
-          now <- env.now
-          key = request.headers.get(CIString("x-forwarded-for")).map(_.head.value.takeWhile(_ != ','))
-            .orElse(request.remoteAddr.map(_.toString)).getOrElse("unknown")
-          allowed <- limiter.check(key.trim, now)
-          response <-
-            if !allowed then IO.pure(XrpcError.rateLimited().response[IO]
-              .putHeaders(Header.Raw(CIString("Retry-After"), "60")))
-            else app.run(request).getOrElse(
-              XrpcError.notFound("Route not found").response[IO])
-        yield decorate(env, request, response, now)
-      }
+      val handled = for
+        now <- env.now
+        key = request.headers.get(CIString("x-forwarded-for")).map(_.head.value.takeWhile(_ != ','))
+          .orElse(request.remoteAddr.map(_.toString)).getOrElse("unknown")
+        allowed <- limiter.check(key.trim, now)
+        response <-
+          if !allowed then IO.pure(XrpcError.rateLimited().response[IO]
+            .putHeaders(Header.Raw(CIString("Retry-After"), "60")))
+          else Xrpc.recover(app.run(request).getOrElse(
+            XrpcError.notFound("Route not found").response[IO]))
+      yield decorate(env, request, response, now)
+      Xrpc.recover(handled)
     }
 
   private def hostedDocument(env: Env, did: String): IO[Response[IO]] =
