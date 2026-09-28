@@ -8,7 +8,8 @@ val circeVersion = "0.14.10"
 lazy val root = (project in file("."))
   .settings(
     name := "scala-pds",
-    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Werror"),
+    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Werror",
+      "-language:implicitConversions"),
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-ember-server" % http4sVersion,
       "org.http4s" %% "http4s-ember-client" % http4sVersion,
