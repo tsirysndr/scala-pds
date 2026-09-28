@@ -37,7 +37,7 @@ and the project layout.
 
 ## Documentation
 
-Browse these pages as a website at <https://scala-pds.tsirysndr.deno.net/>
+Browse these pages as a website at <https://scala-pds-docs.tsirysndr.deno.net/>
 (`docs/` doubles as a Lume static site; see [docs/README.md](docs/README.md)).
 
 ### Setup and operations
