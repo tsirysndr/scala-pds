@@ -24,7 +24,8 @@ object TokenEndpoint:
         fail("invalid_request", "client_id is required"))
       metadata <- Client.fetch(env, clientId)
       _ <- authenticate(env, metadata, form, now)
-      proof <- Dpop.verify(env, request, None, now, requireNonce = true)
+      proof <- Dpop.verify(env, request, None, now, requireNonce = true,
+        authorizationServer = true)
       result <- form.get("grant_type") match
         case Some("authorization_code") => authorizationCode(env, metadata, form, proof, now)
         case Some("refresh_token")      => refreshToken(env, metadata, form, proof, now)

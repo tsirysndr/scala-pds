@@ -4,14 +4,28 @@ import io.circe.Json
 import org.http4s.{Response, Status}
 import org.http4s.circe.*
 
-/** XRPC errors carry a machine-readable name alongside the HTTP status. */
-final case class XrpcError(status: Status, error: String, message: String)
-    extends RuntimeException(message):
+/** XRPC errors carry a machine-readable name alongside the HTTP status.
+  *
+  * OAuth surfaces additionally render `error_description`, which is what RFC
+  * 6749 names the field, and may carry a `WWW-Authenticate` challenge.
+  */
+final case class XrpcError(
+    status: Status,
+    error: String,
+    message: String,
+    challenge: Option[String] = None,
+    oauth: Boolean = false
+) extends RuntimeException(message):
   def response[F[_]]: Response[F] =
-    Response[F](status).withEntity(Json.obj(
+    val body = Json.obj(
       "error" -> Json.fromString(error),
       "message" -> Json.fromString(message)
-    ))
+    ).deepMerge(
+      if oauth then Json.obj("error_description" -> Json.fromString(message)) else Json.obj())
+    val rendered = Response[F](status).withEntity(body)
+    challenge.fold(rendered)(value =>
+      rendered.putHeaders(
+        org.http4s.Header.Raw(org.typelevel.ci.CIString("WWW-Authenticate"), value)))
 
 object XrpcError:
   def invalidRequest(message: String): XrpcError =

@@ -116,8 +116,11 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
         retried <- parRequest(server, now, nonceOf(without))
         pushed <- retried.as[Json]
       yield
-        assertEquals(without.status, Status.Unauthorized)
+        // RFC 9449: an authorization-server endpoint answers 400 with a JSON
+        // error, which is the only form a conforming client retries on.
+        assertEquals(without.status, Status.BadRequest)
         assertEquals(body.hcursor.get[String]("error"), Right("use_dpop_nonce"))
+        assertEquals(body.hcursor.get[String]("error_description").isRight, true)
         assert(nonceOf(without).isDefined)
         assertEquals(retried.status, Status.Created)
         assert(pushed.hcursor.get[String]("request_uri").toOption.get
@@ -397,11 +400,11 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
         firstUse <- server.run(form("/oauth/par", values, single))
         replay <- server.run(form("/oauth/par", values, single))
       yield
-        assertEquals(wrongMethod.status, Status.Unauthorized)
-        assertEquals(wrongUrl.status, Status.Unauthorized)
-        assertEquals(stale.status, Status.Unauthorized)
+        assertEquals(wrongMethod.status, Status.BadRequest)
+        assertEquals(wrongUrl.status, Status.BadRequest)
+        assertEquals(stale.status, Status.BadRequest)
         assertEquals(firstUse.status, Status.Created)
-        assertEquals(replay.status, Status.Unauthorized)
+        assertEquals(replay.status, Status.BadRequest)
     }
   }
 
@@ -453,6 +456,29 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
       yield
         assertEquals(stolen.status, Status.BadRequest)
         assertEquals(body.hcursor.get[String]("error"), Right("invalid_grant"))
+    }
+  }
+
+  test("the resource server answers a DPoP failure with a 401 challenge") {
+    harness(client = routes(upstream())).use { server =>
+      for
+        now <- server.env.now
+        // A bearer-shaped token with no proof at all.
+        noProof <- server.run(get("/xrpc/com.atproto.server.getSession")
+          .putHeaders(Header.Raw(CIString("Authorization"), s"DPoP ${Hash.token()}")))
+        // A syntactically valid proof for the wrong URL.
+        wrongUrl <- server.run(get("/xrpc/com.atproto.server.getSession").putHeaders(
+          Header.Raw(CIString("Authorization"), s"DPoP ${Hash.token()}"),
+          Header.Raw(CIString("DPoP"), proof("GET", s"$origin/oauth/token", None, None, now))))
+      yield
+        // RFC 9449: a resource server answers 401 and names the error in the
+        // challenge, alongside the discovery hint.
+        assertEquals(noProof.status, Status.Unauthorized)
+        assertEquals(wrongUrl.status, Status.Unauthorized)
+        val challenge = wrongUrl.headers.get(CIString("WWW-Authenticate")).map(_.head.value).get
+        assert(challenge.startsWith("DPoP"), challenge)
+        assert(challenge.contains("""error="invalid_dpop_proof""""), challenge)
+        assert(challenge.contains("resource_metadata="), challenge)
     }
   }
 

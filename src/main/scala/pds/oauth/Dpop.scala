@@ -31,8 +31,17 @@ object Dpop:
   def required(request: Request[IO]): Boolean =
     request.headers.get(CIString("DPoP")).isDefined
 
-  def fail(error: String, message: String): XrpcError =
-    XrpcError.named(Status.Unauthorized, error, message)
+  /** RFC 9449 splits the reply by surface: an authorization-server endpoint
+    * answers 400 with a JSON `error`, a resource server answers 401 with a
+    * `WWW-Authenticate` challenge. A conforming client only retries the
+    * nonce handshake when it sees the right one.
+    */
+  def fail(error: String, message: String, authorizationServer: Boolean): XrpcError =
+    if authorizationServer then
+      XrpcError(Status.BadRequest, error, message, oauth = true)
+    else
+      XrpcError(Status.Unauthorized, error, message,
+        challenge = Some(s"""DPoP algs="ES256", error="$error", error_description="$message""""))
 
   /** Verifies a proof. `accessToken` binds the proof to a presented token and
     * `requireNonce` applies to the token endpoint, which always demands one.
@@ -42,61 +51,71 @@ object Dpop:
       request: Request[IO],
       accessToken: Option[String],
       now: Long,
-      requireNonce: Boolean
+      requireNonce: Boolean,
+      authorizationServer: Boolean
   ): IO[Proof] =
+    val fails = (error: String, message: String) => fail(error, message, authorizationServer)
     for
       header <- IO.fromOption(request.headers.get(CIString("DPoP")).map(_.head.value))(
-        fail("use_dpop_nonce", "A DPoP proof is required"))
+        fails("invalid_dpop_proof", "A DPoP proof is required"))
       jwt <- IO.fromEither(Jwt.parse(header).left.map(message =>
-        fail("invalid_dpop_proof", message)))
+        fails("invalid_dpop_proof", message)))
       _ <- IO.raiseUnless(jwt.typ.contains("dpop+jwt"))(
-        fail("invalid_dpop_proof", "Proof type must be dpop+jwt"))
+        fails("invalid_dpop_proof", "Proof type must be dpop+jwt"))
       jwk <- IO.fromOption(jwt.header.hcursor.downField("jwk").focus)(
-        fail("invalid_dpop_proof", "Proof has no public key"))
+        fails("invalid_dpop_proof", "Proof has no public key"))
       key <- IO.fromEither(Jwt.publicKeyFromJwk(jwk).left.map(message =>
-        fail("invalid_dpop_proof", message)))
+        fails("invalid_dpop_proof", message)))
       _ <- IO.raiseUnless(jwt.algorithm.contains(key.curve.jwtAlgorithm))(
-        fail("invalid_dpop_proof", "Unexpected proof algorithm"))
+        fails("invalid_dpop_proof", "Unexpected proof algorithm"))
       _ <- IO.fromEither(Jwt.verifyEs(key, header).left.map(message =>
-        fail("invalid_dpop_proof", message)))
+        fails("invalid_dpop_proof", message)))
       thumbprint <- IO.fromEither(Jwt.thumbprint(jwk).left.map(message =>
-        fail("invalid_dpop_proof", message)))
+        fails("invalid_dpop_proof", message)))
       issued <- IO.fromOption(jwt.numeric("iat"))(
-        fail("invalid_dpop_proof", "Proof has no issue time"))
+        fails("invalid_dpop_proof", "Proof has no issue time"))
       _ <- IO.raiseUnless(math.abs(now / 1000 - issued) <= windowSeconds)(
-        fail("invalid_dpop_proof", "Proof is outside the accepted time window"))
-      method <- IO.fromOption(jwt.claim("htm"))(fail("invalid_dpop_proof", "Proof has no method"))
+        fails("invalid_dpop_proof", "Proof is outside the accepted time window"))
+      method <- IO.fromOption(jwt.claim("htm"))(fails("invalid_dpop_proof", "Proof has no method"))
       _ <- IO.raiseUnless(method == request.method.name)(
-        fail("invalid_dpop_proof", "Proof method does not match the request"))
-      url <- IO.fromOption(jwt.claim("htu"))(fail("invalid_dpop_proof", "Proof has no URL"))
+        fails("invalid_dpop_proof", "Proof method does not match the request"))
+      url <- IO.fromOption(jwt.claim("htu"))(fails("invalid_dpop_proof", "Proof has no URL"))
       _ <- IO.raiseUnless(url == canonicalUrl(env, request))(
-        fail("invalid_dpop_proof", "Proof URL does not match the request"))
+        fails("invalid_dpop_proof", "Proof URL does not match the request"))
       _ <- accessToken.fold(IO.unit) { token =>
         val expected = Encoding.b64(Hash.sha256(token))
         IO.raiseUnless(jwt.claim("ath").contains(expected))(
-          fail("invalid_dpop_proof", "Proof is not bound to this access token"))
+          fails("invalid_dpop_proof", "Proof is not bound to this access token"))
       }
-      _ <- checkNonce(env, jwt.claim("nonce"), now, requireNonce)
+      _ <- checkNonce(env, jwt.claim("nonce"), now, requireNonce, fails)
       jti <- IO.fromOption(jwt.claim("jti").filter(value => value.length >= 8 && value.length <= 128))(
-        fail("invalid_dpop_proof", "Proof has no usable identifier"))
-      _ <- recordJti(env, thumbprint, jti, now)
+        fails("invalid_dpop_proof", "Proof has no usable identifier"))
+      _ <- recordJti(env, thumbprint, jti, now, fails)
     yield Proof(thumbprint, jti)
 
   private def checkNonce(
-      env: Env, supplied: Option[String], now: Long, requireNonce: Boolean
+      env: Env,
+      supplied: Option[String],
+      now: Long,
+      requireNonce: Boolean,
+      fails: (String, String) => XrpcError
   ): IO[Unit] =
     supplied match
       case Some(value) if acceptable(env, now).contains(value) => IO.unit
-      case Some(_) => IO.raiseError(fail("use_dpop_nonce", "The DPoP nonce is stale"))
-      case None if requireNonce => IO.raiseError(fail("use_dpop_nonce", "A DPoP nonce is required"))
+      case Some(_) => IO.raiseError(fails("use_dpop_nonce", "The DPoP nonce is stale"))
+      case None if requireNonce =>
+        IO.raiseError(fails("use_dpop_nonce", "A DPoP nonce is required"))
       case None => IO.unit
 
-  private def recordJti(env: Env, thumbprint: String, jti: String, now: Long): IO[Unit] =
+  private def recordJti(
+      env: Env, thumbprint: String, jti: String, now: Long,
+      fails: (String, String) => XrpcError
+  ): IO[Unit] =
     env.database.transact { connection =>
       Sql.update(connection, "DELETE FROM oauth_replay WHERE expires_at <= ?", now)
       val key = Hash.digestToken(s"$thumbprint/$jti")
       if Sql.exists(connection, "SELECT 1 FROM oauth_replay WHERE jti = ?", key) then
-        throw fail("invalid_dpop_proof", "The proof has already been used")
+        throw fails("invalid_dpop_proof", "The proof has already been used")
       Sql.update(connection, "INSERT INTO oauth_replay(jti, expires_at) VALUES (?, ?)",
         key, now + (windowSeconds * 2) * 1000)
     }.void

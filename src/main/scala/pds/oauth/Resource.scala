@@ -16,7 +16,8 @@ object Resource:
       _ <- IO.raiseUnless(Dpop.required(request))(
         XrpcError.named(Status.Unauthorized, "InvalidToken",
           "OAuth access tokens require a DPoP proof"))
-      proof <- Dpop.verify(env, request, Some(token), now, requireNonce = false)
+      proof <- Dpop.verify(env, request, Some(token), now, requireNonce = false,
+        authorizationServer = false)
       found <- env.database.read { connection =>
         Sql.first(connection,
           """SELECT did, scope, dpop_jkt, security_epoch, revoked, access_expires_at

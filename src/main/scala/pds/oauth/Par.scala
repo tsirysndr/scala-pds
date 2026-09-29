@@ -27,7 +27,8 @@ object Par:
       _ <- authenticate(env, metadata, form, now)
       parameters <- IO.fromEither(validate(metadata, form))
       proof <- if Dpop.required(request)
-        then Dpop.verify(env, request, None, now, requireNonce = true).map(value => Some(value.thumbprint))
+        then Dpop.verify(env, request, None, now, requireNonce = true,
+          authorizationServer = true).map(value => Some(value.thumbprint))
         else IO.pure(None)
       identifier = Hash.token()
       _ <- env.database.transact { connection =>
