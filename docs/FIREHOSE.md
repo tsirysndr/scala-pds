@@ -32,11 +32,18 @@ rooted at the new commit — `ops` with one `{action, path, cid}` per record
 change, the blob CIDs the commit references, `prevData` (the previous tree root)
 and `time`.
 
-An error frame uses `op: -1`:
+An error frame uses `op: -1` and **ends** the subscription:
 
 ```
 header: { "op": -1 }
 body:   { "error": "FutureCursor", "message": "Cursor is ahead of the sequence" }
+```
+
+An `#info` message is a notice that does not end anything:
+
+```
+header: { "op": 1, "t": "#info" }
+body:   { "name": "OutdatedCursor", "message": "…some events were skipped" }
 ```
 
 ## Cursors
@@ -44,8 +51,15 @@ body:   { "error": "FutureCursor", "message": "Cursor is ahead of the sequence" 
 | `cursor` | Behaviour |
 | --- | --- |
 | omitted | stream events from now on |
-| `0` or any past value | replay from that sequence number, then continue live |
-| ahead of the sequence | a `FutureCursor` error frame, then live events |
+| within the retained sequence | replay from that sequence number, then continue live |
+| older than the retained sequence | an `OutdatedCursor` `#info` message, then replay from the oldest event still held |
+| ahead of the sequence | a `FutureCursor` error frame, and the connection ends |
+
+A consumer that asks for a cursor the retention window has passed is **told so**
+before anything else arrives, because the alternative — quietly resuming from the
+oldest retained event — would leave it believing it had an unbroken history. On
+that notice it should read the whole repository with `com.atproto.sync.getRepo`
+rather than trusting the gap.
 
 Backfill is served in batches of up to 1000 events. A ping is sent every thirty
 seconds so idle connections survive intermediaries.
@@ -66,10 +80,11 @@ how far back a consumer can rewind. A background pass drops events past the
 window, and a second pass then reclaims the repository blocks those revisions
 were holding open — see [repositories](/repositories/).
 
-A consumer that falls further behind than the window cannot be served by
-`cursor`; it reads the whole repository with `com.atproto.sync.getRepo` and
-resumes live. That is why the retained window and the block retention are the
-same window: an event that can still be replayed always has its blocks.
+A consumer that falls further behind than the window is answered with an
+`OutdatedCursor` notice; it reads the whole repository with
+`com.atproto.sync.getRepo` and resumes live. That is why the retained window and
+the block retention are the same window: an event that can still be replayed
+always has its blocks.
 
 ## Announcing the server
 
