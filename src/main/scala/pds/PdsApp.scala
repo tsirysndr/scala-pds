@@ -32,6 +32,8 @@ object PdsApp:
         |This is an AT Protocol Personal Data Server (aka, an atproto PDS)
         |
         |Most API routes are under /xrpc/
+        |
+        |Docs: https://scala-pds.tsirysndr.deno.net
         |""".stripMargin
 
   val version = "scala-pds 0.1.0-SNAPSHOT"

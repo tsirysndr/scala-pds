@@ -2,6 +2,7 @@ package pds.api
 
 import cats.effect.IO
 import io.circe.Json
+import org.http4s.circe.*
 import org.http4s.{Method, Request, Status, Uri}
 import pds.TestEnv
 import pds.TestEnv.*
@@ -251,6 +252,20 @@ class ServerFlowSuite extends munit.CatsEffectSuite:
         assertEquals(jwt.algorithm, Some("ES256K"))
         assertEquals(tooLong._2.hcursor.get[String]("error"), Right("BadExpiration"))
         assertEquals(badAudience._1, Status.BadRequest)
+    }
+  }
+
+  test("the root banner names the server and links to the documentation") {
+    harness().use { server =>
+      for
+        response <- server.run(get("/"))
+        body <- response.as[String]
+      yield
+        assertEquals(response.status, Status.Ok)
+        assertEquals(response.contentType.map(_.mediaType.subType), Some("plain"))
+        assert(body.contains("This is an AT Protocol Personal Data Server"), body)
+        assert(body.contains("Most API routes are under /xrpc/"), body)
+        assert(body.contains("Docs: https://scala-pds.tsirysndr.deno.net"), body)
     }
   }
 
