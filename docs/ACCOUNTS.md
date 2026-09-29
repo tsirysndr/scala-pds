@@ -5,8 +5,8 @@
 `com.atproto.server.createAccount` validates before it writes anything:
 
 - the handle must be syntactically valid, end with `PDS_USER_DOMAIN`, contain no
-  extra label, be at least three characters, and not be a reserved name such as
-  `admin`, `oauth`, `xrpc` or `www`;
+  extra label, be at least three characters, and not be a reserved name — see
+  [reserved names](#reserved-names);
 - the password must be 8–1024 characters;
 - an email address is required when email delivery is configured, and must be
   unique;
@@ -19,6 +19,24 @@ response carries a session pair and the account's DID document.
 
 Handle and email uniqueness are re-checked inside that transaction, so two
 simultaneous registrations cannot both win.
+
+## Reserved names
+
+Some labels are never registrable. The built-in set covers this server's own
+routes and protocol identifiers — `xrpc`, `oauth`, `did`, `atproto`, `account`,
+`admin`, `localhost` and similar — so a handle can never shadow them.
+
+`PDS_RESERVED_HANDLES` is a comma-separated list of further labels, **added** to
+the built-in ones rather than replacing them. Entries are lowercased and trimmed,
+and must be bare handle labels: a value with a dot, a space or a slash fails
+startup rather than being silently ignored.
+
+This matters most when a handle domain is [shared with another
+server](/identity/#sharing-a-handle-domain-with-another-server). Reservation is
+not something a server can ask its peers about — an unregistered name simply
+does not resolve — so a name reserved on one server and not another can still be
+taken on the other. Servers sharing a domain should therefore carry the same
+list, plus whatever each needs for itself.
 
 ## Sessions
 
