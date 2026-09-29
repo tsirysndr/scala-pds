@@ -38,7 +38,8 @@ object PdsApp:
 
   val version = "scala-pds 0.1.0-SNAPSHOT"
 
-  private val proxied = Set("app.bsky.", "chat.bsky.", "tools.ozone.")
+  private val proxied =
+    Set("app.bsky.", "chat.bsky.", "tools.ozone.", "com.atproto.moderation.")
 
   def apply(
       env: Env,

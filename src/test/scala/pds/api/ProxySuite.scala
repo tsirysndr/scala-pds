@@ -45,6 +45,70 @@ class ProxySuite extends munit.CatsEffectSuite:
     "PDS_APPVIEW_DID" -> appviewDid
   )
 
+  private val modDid = "did:web:ozone.example.com"
+  private val modUrl = "https://ozone.example.com"
+
+  private def moderation(seen: Ref[IO, Vector[Seen]])
+      : PartialFunction[Request[IO], IO[Response[IO]]] =
+    case request if request.uri.renderString.startsWith(modUrl) =>
+      seen.update(_ :+ Seen(
+        request.uri.renderString,
+        request.method.name,
+        request.headers.get(CIString("Authorization")).map(_.head.value),
+        request.headers.headers.map(_.name.toString.toLowerCase).toVector
+      )) *> IO.pure(Response[IO](Status.Ok).withEntity(Json.obj("id" -> Json.fromInt(7))))
+
+  private val report = Json.obj(
+    "reasonType" -> Json.fromString("com.atproto.moderation.defs#reasonSpam"),
+    "subject" -> Json.obj(
+      "$type" -> Json.fromString("com.atproto.admin.defs#repoRef"),
+      "did" -> Json.fromString("did:web:bob.pds.example.com"))
+  )
+
+  test("a report reaches the configured moderation service, not the AppView") {
+    Ref.of[IO, Vector[Seen]](Vector.empty).flatMap { seen =>
+      harness(configured ++ Map("PDS_MOD_SERVICE_URL" -> modUrl, "PDS_MOD_SERVICE_DID" -> modDid),
+        routes(moderation(seen).orElse(upstream(seen)))).use { server =>
+        for
+          auth <- register(server)
+          (access, did) = auth
+          response <- server.json(authorized(
+            post("/xrpc/com.atproto.moderation.createReport", report), access))
+          recorded <- seen.get
+        yield
+          assertEquals(response._1, Status.Ok)
+          assertEquals(response._2.hcursor.get[Int]("id"), Right(7))
+          assertEquals(recorded.size, 1)
+          assertEquals(recorded.head.uri, s"$modUrl/xrpc/com.atproto.moderation.createReport")
+          val claims = Jwt.parse(recorded.head.authorization.get.drop("Bearer ".length))
+            .fold(message => fail(message), identity)
+          assertEquals(claims.claim("iss"), Some(did))
+          assertEquals(claims.claim("aud"), Some(modDid))
+          assertEquals(claims.claim("lxm"), Some("com.atproto.moderation.createReport"))
+      }
+    }
+  }
+
+  test("a report is refused without a session and without a moderation service") {
+    Ref.of[IO, Vector[Seen]](Vector.empty).flatMap { seen =>
+      for
+        anonymous <- harness(configured ++ Map(
+          "PDS_MOD_SERVICE_URL" -> modUrl, "PDS_MOD_SERVICE_DID" -> modDid),
+          routes(moderation(seen))).use(server =>
+            server.json(post("/xrpc/com.atproto.moderation.createReport", report)).map(_._1))
+        unconfigured <- harness(configured, routes(upstream(seen))).use { server =>
+          register(server).flatMap((access, _) =>
+            server.json(authorized(
+              post("/xrpc/com.atproto.moderation.createReport", report), access)).map(_._1))
+        }
+        recorded <- seen.get
+      yield
+        assertEquals(anonymous, Status.Unauthorized)
+        assertEquals(unconfigured, Status.NotImplemented)
+        assertEquals(recorded, Vector.empty)
+    }
+  }
+
   test("an unimplemented app.bsky method reaches the configured AppView") {
     Ref.of[IO, Vector[Seen]](Vector.empty).flatMap { seen =>
       harness(configured, routes(upstream(seen))).use { server =>
