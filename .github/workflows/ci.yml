@@ -1,0 +1,98 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scala:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+      - uses: coursier/cache-action@v6
+      - name: Test
+        run: sbt -batch test
+      - name: Assemble
+        run: sbt -batch assembly
+      - name: Start the server and exercise it
+        run: |
+          java -jar target/scala-*/scala-pds.jar > server.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:3000/xrpc/_health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/xrpc/_health
+          curl -fsS http://127.0.0.1:3000/xrpc/com.atproto.server.describeServer
+          curl -fsS http://127.0.0.1:3000/.well-known/oauth-authorization-server >/dev/null
+          curl -fsS -o /dev/null http://127.0.0.1:3000/account
+      - name: Server log
+        if: always()
+        run: cat server.log || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: The committed bundle matches the sources
+        run: |
+          npm run build
+          cd ..
+          git diff --exit-code -- src/main/resources/ui
+
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task build
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: scala-pds:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run the image
+        run: |
+          docker run -d --name pds -p 3000:3000 \
+            -e PDS_MASTER_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')" \
+            scala-pds:ci
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:3000/xrpc/_health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/xrpc/com.atproto.server.describeServer
+      - name: Container log
+        if: always()
+        run: docker logs pds || true

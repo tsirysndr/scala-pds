@@ -23,9 +23,10 @@
   },
   "deploy": {
     "org": "tsirysndr",
-    "app": "scala-pds-docs"
+    "app": "scala-pds"
   }
 }
+
 
 
 
