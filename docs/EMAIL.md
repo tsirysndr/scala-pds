@@ -10,7 +10,7 @@ Lambda, anything that can talk to your mail provider.
 | -------------------- | ------------------------------------------------------------------------ |
 | `PDS_EMAIL_ENDPOINT` | HTTPS endpoint that accepts the JSON message                             |
 | `PDS_EMAIL_TOKEN`    | sent as `Authorization: Bearer <token>`                                  |
-| `PDS_EMAIL_FROM`     | sender address included in the payload; defaults to `noreply@<hostname>` |
+| `PDS_EMAIL_FROM`     | sender address, when the endpoint does not own sender identity itself    |
 
 With no endpoint configured, every flow that needs mail refuses with
 `EmailUnavailable` instead of reporting a delivery that will not happen. That
@@ -19,14 +19,23 @@ factor, PLC operation signatures and `com.atproto.admin.sendEmail`.
 
 ## The contract
 
-```json
+A message on the wire is exactly three fields, with the row's identifier as an
+idempotency key:
+
+```
+POST $PDS_EMAIL_ENDPOINT
+Authorization: Bearer $PDS_EMAIL_TOKEN
+Idempotency-Key: 6f1c7f94-2e7a-4a1a-9c0e-3f1d2b7a5c88
+
 {
   "to": "alice@example.com",
-  "from": "noreply@pds.example.com",
-  "purpose": "reset-password",
-  "token": "ABCDEF-GHIJKL"
+  "subject": "Reset your pds.example.com password",
+  "text": "Use this code to set a new password:\n\n    ABCDEF-GHIJK\n\n…"
 }
 ```
+
+The endpoint therefore owns sender identity and provider credentials, and nothing
+else. The subject and body are rendered here, per purpose:
 
 | `purpose`        | Sent when                                                                      |
 | ---------------- | ------------------------------------------------------------------------------ |
@@ -38,9 +47,14 @@ factor, PLC operation signatures and `com.atproto.admin.sendEmail`.
 | `plc-operation`  | an identity operation needs confirmation                                       |
 | `admin-notice`   | an operator sent a message; carries `subject` and `content` instead of `token` |
 
-Your endpoint owns the wording. Any 2xx response marks the message sent;
-anything else is a failure. It should be idempotent on `purpose` and `to`,
-because a retry can deliver the same token twice.
+Any 2xx response marks the message sent; anything else is a failure. Retries
+repeat the same `Idempotency-Key`, so an endpoint that honours it will not deliver
+the same message twice after an ambiguous failure. A message that cannot be
+rendered — an unknown purpose, or a notice with no body — is failed outright
+rather than sent half-formed.
+
+This is the shape a Cloudflare Worker mail relay expects, so the same worker can
+serve several servers.
 
 ## The outbox
 
