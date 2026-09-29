@@ -13,7 +13,7 @@ import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
-import pds.tools.{AccountRecovery, Backup, MasterKeyRotation}
+import pds.tools.{AccountRecovery, Backup, KeyRotation, MasterKeyRotation}
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -37,11 +37,14 @@ object Main extends IOApp:
           masterKey(env, database).flatMap(verifyMasterKey(database, _))
         case "recover-account" :: rest =>
           masterKey(env, database).flatMap(recoverAccount(config, database, _, env, rest))
+        case "rotate-account-keys" :: rest =>
+          masterKey(env, database).flatMap(rotateAccountKeys(config, database, _, env, rest))
         case other =>
           IO.println(s"scala-pds: unknown command ${other.mkString(" ")}") *>
             IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key |" +
-              " recover-account <identifier> <reference> | backup <path> |" +
-              " verify-backup <path>]").as(ExitCode(2))
+              " recover-account <identifier> <reference> |" +
+              " rotate-account-keys <identifier> [signing|rotation|both] |" +
+              " backup <path> | verify-backup <path>]").as(ExitCode(2))
     yield code
 
   /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
@@ -96,6 +99,48 @@ object Main extends IOApp:
           IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error))
       case _ =>
         IO.println("usage: scala-pds recover-account <handle|did|email> <reference>")
+          .as(ExitCode(2))
+
+  /** Replaces an account's managed keys and republishes its identity. */
+  private def rotateAccountKeys(
+      config: ServerConfig,
+      database: DatabaseConfig,
+      sealing: Sealing,
+      environment: Map[String, String],
+      arguments: List[String]
+  ): IO[ExitCode] =
+    arguments match
+      case identifier :: rest =>
+        val what = rest.headOption.getOrElse("both")
+        val signing = what == "signing" || what == "both"
+        val rotation = what == "rotation" || what == "both"
+        if !signing && !rotation then
+          IO.println("usage: scala-pds rotate-account-keys <identifier> [signing|rotation|both]")
+            .as(ExitCode(2))
+        else
+          val resources = for
+            db <- Database.resource(database)
+            client <- EmberClientBuilder.default[IO].withTimeout(15.seconds).build
+          yield (db, client)
+          resources.use { (db, client) =>
+            for
+              _ <- Migrations.run(db)
+              net = new Net(client, !config.secure)
+              schemas <- Schemas.offline
+              env = Env(config, db, sealing, net, new Resolver(net, db, config), schemas)
+              result <- KeyRotation.rotate(env, identifier, signing, rotation)
+              _ <- IO.println(s"scala-pds: rotated keys for ${result.handle} (${result.did})")
+              _ <- result.signingKey.fold(IO.unit)(key =>
+                IO.println(s"scala-pds: signing key is now $key"))
+              _ <- result.revision.fold(IO.unit)(rev =>
+                IO.println(s"scala-pds: head re-signed at revision $rev"))
+              _ <- result.rotationKey.fold(IO.unit)(key =>
+                IO.println(s"scala-pds: rotation key is now $key"))
+            yield ExitCode.Success
+          }.handleErrorWith(error =>
+            IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error))
+      case _ =>
+        IO.println("usage: scala-pds rotate-account-keys <identifier> [signing|rotation|both]")
           .as(ExitCode(2))
 
   private def backup(database: DatabaseConfig, arguments: List[String]): IO[ExitCode] =

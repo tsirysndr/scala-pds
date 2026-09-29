@@ -69,6 +69,7 @@ database rather than an API credential. They run on the host from the same jar:
 | `rotate-master-key` | re-encrypt every sealed secret under `PDS_NEW_MASTER_KEY` |
 | `verify-master-key` | check every sealed value opens, without writing |
 | `recover-account <identifier> <reference>` | clear an account's second factors |
+| `rotate-account-keys <identifier> [signing\|rotation\|both]` | replace an account's managed keys |
 | `backup <path>` | checksummed SQLite snapshot, safe while running |
 | `verify-backup <path>` | re-read a backup and check its checksum |
 

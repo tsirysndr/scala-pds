@@ -92,6 +92,43 @@ the rotation key themselves:
 - `com.atproto.identity.submitPlcOperation` submits an already-signed operation
   and marks the account's keys as confirmed.
 
+## Rotating managed keys
+
+An operator can replace the keys this server holds for an account:
+
+```sh
+java -jar scala-pds.jar rotate-account-keys alice.example.com both
+```
+
+```
+scala-pds: rotated keys for alice.example.com (did:plc:…)
+scala-pds: signing key is now did:key:zQ3sh…
+scala-pds: head re-signed at revision 3mwm…
+scala-pds: rotation key is now did:key:zQ3sh…
+```
+
+`signing`, `rotation` or `both` selects what changes.
+
+The directory is updated **first**, signed with the current rotation key: a
+rejected operation must not leave the server holding a key the published
+document does not name. Only then are the new sealed keys stored.
+
+Rotating the signing key leaves the head commit signed by a key the document no
+longer names, so the head is **re-signed at a new revision** in the same
+transaction, and a `#commit` event announces it. A consumer that verifies the
+current commit against the current document therefore never sees a gap, and the
+records themselves are untouched — the tree root does not change.
+
+Rotating the rotation key replaces only the key this server holds. A
+`recoveryKey` the account supplied at registration outranks it and is left in
+place, so the owner keeps independent control.
+
+For `did:web` accounts there is no directory to update: the served document
+reflects the new key immediately.
+
+This is different from [master-key rotation](/master-key/), which re-encrypts
+the same keys under a new sealing key without changing any published identity.
+
 ## Outbound safety
 
 Every outbound fetch — handle documents, DID documents, OAuth client metadata,

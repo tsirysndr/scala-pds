@@ -52,6 +52,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     second factors without touching its password.
 18. **Backups** — checksummed SQLite snapshots taken while running, verified by
     re-reading them.
+19. **Managed key rotation** — new signing and rotation keys published through
+    the directory, with the head re-signed so exports keep verifying.
 
 ## Next
 
@@ -73,7 +75,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Key custody
 
-- Managed signing and rotation key rotation, published through the directory.
 - Externally signed PLC recovery forks, and reconciliation when a directory
   changes outside this server.
 
