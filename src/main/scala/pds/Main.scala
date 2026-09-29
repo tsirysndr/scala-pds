@@ -11,6 +11,7 @@ import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, Sql}
+import pds.tools.MasterKeyRotation
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -22,8 +23,50 @@ object Main extends IOApp:
       database <- IO.fromEither(DatabaseConfig.fromEnv(env)
         .left.map(new IllegalArgumentException(_)))
       sealing <- masterKey(env, database)
-      code <- serve(config, database, sealing, env)
+      code <- arguments match
+        case Nil | "serve" :: Nil     => serve(config, database, sealing, env)
+        case "rotate-master-key" :: _ => rotateMasterKey(database, sealing, env)
+        case "verify-master-key" :: _ => verifyMasterKey(database, sealing)
+        case other =>
+          IO.println(s"scala-pds: unknown command ${other.mkString(" ")}") *>
+            IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key]")
+              .as(ExitCode(2))
     yield code
+
+  /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
+  private def rotateMasterKey(
+      database: DatabaseConfig, current: Sealing, environment: Map[String, String]
+  ): IO[ExitCode] =
+    environment.get("PDS_NEW_MASTER_KEY").filter(_.nonEmpty) match
+      case None =>
+        IO.println("scala-pds: set PDS_NEW_MASTER_KEY to the key to rotate to").as(ExitCode(2))
+      case Some(value) =>
+        IO.fromEither(Sealing.fromBase64(value).left.map(new IllegalArgumentException(_)))
+          .flatMap { next =>
+            Database.resource(database).use { db =>
+              Migrations.run(db) *> MasterKeyRotation.run(db, current, next).flatMap { summary =>
+                IO.println(s"scala-pds: re-encrypted ${summary.signingKeys} signing key(s), " +
+                  s"${summary.rotationKeys} rotation key(s) and " +
+                  s"${summary.authenticators} authenticator secret(s)") *>
+                  IO.println("scala-pds: set PDS_MASTER_KEY to the new key before restarting; " +
+                    "every session and OAuth token is now invalid")
+                    .as(ExitCode.Success)
+              }
+            }
+          }.handleErrorWith { error =>
+            IO.println(s"scala-pds: rotation failed, nothing was changed: ${error.getMessage}")
+              .as(ExitCode.Error)
+          }
+
+  private def verifyMasterKey(database: DatabaseConfig, key: Sealing): IO[ExitCode] =
+    Database.resource(database).use { db =>
+      MasterKeyRotation.verify(db, key).flatMap { summary =>
+        IO.println(s"scala-pds: ${summary.total} sealed value(s) open with this master key")
+          .as(ExitCode.Success)
+      }
+    }.handleErrorWith { error =>
+      IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error)
+    }
 
   private def serve(
       config: ServerConfig,

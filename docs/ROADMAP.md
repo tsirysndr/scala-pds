@@ -35,7 +35,10 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 9. **Service integration** — an authenticated streaming proxy to AppViews and
    labelers, private preferences, administrative and moderation APIs.
 10. **Operations** — the account interface, invite codes, email flows, rate
-    limits, SSRF defences, the container image and the Nix flake.
+    limits, SSRF defences, master-key rotation, the container image and the Nix
+    flake.
+11. **Record validation** — a trusted, checksummed Lexicon catalog, plus
+    authenticated resolution and admission of Lexicons published outside it.
 
 ## Next
 
@@ -49,8 +52,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Records and Lexicons
 
-- Dynamic Lexicon resolution, so records are validated against their published
-  schema rather than only against the data model.
 - `com.atproto.label.*` emission, and an Ozone integration for moderation
   decisions taken elsewhere.
 
@@ -64,7 +65,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Key custody
 
-- Master-key rotation: an offline pass that re-encrypts every sealed value.
 - Managed signing and rotation key rotation, published through the directory.
 - Externally signed PLC recovery forks, and reconciliation when a directory
   changes outside this server.

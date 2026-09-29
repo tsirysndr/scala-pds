@@ -63,10 +63,44 @@ sitting next to the data it protects.
 
 ## Rotation
 
-Rotation is not automated yet — it requires re-encrypting every sealed value
-under the new key. It is [on the roadmap](/roadmap/). Because the format is
-self-describing and the purpose is authenticated, an offline re-encryption pass
-can be added without invalidating existing rows.
+Rotation is an offline pass that re-encrypts every sealed value under a new key,
+in one transaction: either all of them are readable under the current key and
+rewritten, or nothing changes.
+
+```sh
+# Stop the server first: this rewrites the rows it reads at startup.
+export PDS_MASTER_KEY="<the current key>"
+export PDS_NEW_MASTER_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+
+java -jar scala-pds.jar rotate-master-key
+```
+
+```
+scala-pds: re-encrypted 128 signing key(s), 128 rotation key(s) and 12 authenticator secret(s)
+scala-pds: set PDS_MASTER_KEY to the new key before restarting; every session and OAuth token is now invalid
+```
+
+Then set `PDS_MASTER_KEY` to the new value and start the server again.
+
+What rotation moves: repository signing keys, `did:plc` rotation keys and TOTP
+secrets. What it does not need to move: session tokens, CSRF tokens and DPoP
+nonces are *derived* from the key rather than stored, so changing it simply
+invalidates them. Every account signs in again; repository signing keys are
+unchanged, so no identity operation is needed and no commit has to be re-signed.
+
+If any row fails to open with the current key — a value sealed by a different
+deployment, or a partially restored backup — the pass aborts and nothing is
+written. Check first, without writing anything:
+
+```sh
+java -jar scala-pds.jar verify-master-key
+```
+
+```
+scala-pds: 268 sealed value(s) open with this master key
+```
+
+Keep the old key until the new one is confirmed working and backed up.
 
 ## Recovering from a lost key
 
