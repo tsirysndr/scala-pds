@@ -47,10 +47,14 @@ if ! curl -fsS "http://127.0.0.1:$port/xrpc/_health" >/dev/null 2>&1; then
   exit 1
 fi
 
-set +e
-(cd "$root/interop" && PDS_URL="http://127.0.0.1:$port" node verify.mjs)
-status=$?
-set -e
+status=0
+for script in verify.mjs oauth.mjs; do
+  set +e
+  (cd "$root/interop" && PDS_URL="http://localhost:$port" node "$script")
+  [ $? -ne 0 ] && status=1
+  set -e
+  echo
+done
 
 if [ "$status" -ne 0 ]; then
   echo

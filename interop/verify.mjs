@@ -152,7 +152,8 @@ console.log(`wrote ${written.length} records\n`);
 
 console.log("repository");
 
-const didDoc = await call(`/u/${handle.split(".")[0]}/did.json`);
+const didDoc = (await call(`/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`))
+  .didDoc;
 let signingKey;
 await check("the DID document's verification method parses as a did:key", () => {
   signingKey = didDoc.verificationMethod[0].publicKeyMultibase;

@@ -4,13 +4,15 @@
   "type": "module",
   "description": "Checks scala-pds output with the reference atproto implementation.",
   "scripts": {
-    "verify": "node verify.mjs"
+    "verify": "node verify.mjs",
+    "oauth": "node oauth.mjs"
   },
   "dependencies": {
     "@atproto/api": "^0.15.0",
     "@atproto/common": "^0.4.0",
     "@atproto/crypto": "^0.4.0",
     "@atproto/lexicon": "^0.4.0",
+    "@atproto/oauth-client-node": "^0.5.7",
     "@atproto/repo": "^0.7.0",
     "@atproto/syntax": "^0.4.0",
     "undici": "^8.11.2"
