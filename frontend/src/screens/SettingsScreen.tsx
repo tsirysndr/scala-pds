@@ -2,14 +2,22 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Divider, Snippet, Switch } from "@heroui/react";
 import { useAtom } from "jotai";
-import { IconDeviceMobile, IconKey, IconLogout, IconShieldLock } from "@tabler/icons-react";
+import {
+  IconDeviceMobile,
+  IconFingerprint,
+  IconKey,
+  IconLogout,
+  IconShieldLock,
+} from "@tabler/icons-react";
 import type { Session } from "../api";
 import { useAction } from "../api";
 import {
   appPasswordSchema,
+  passkeyNameSchema,
   passwordChangeSchema,
   totpCodeSchema,
   type AppPasswordValues,
+  type PasskeyNameValues,
   type PasswordChangeValues,
   type TotpCodeValues,
 } from "../schemas";
@@ -18,6 +26,7 @@ import { AuthCard } from "../components/AuthCard";
 import { Alert } from "../components/Alert";
 import { TextField, PasswordField } from "../components/Field";
 import { usePending } from "../pending";
+import { ceremonyOptions, credentialJSON, type ServerOptions } from "../webauthn";
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -48,6 +57,11 @@ export function SettingsScreen({ session }: { session: Session }) {
     defaultValues: { code: "" },
   });
 
+  const passkey = useForm<PasskeyNameValues>({
+    resolver: zodResolver(passkeyNameSchema),
+    defaultValues: { name: "" },
+  });
+
   const passwords = useForm<PasswordChangeValues>({
     resolver: zodResolver(passwordChangeSchema),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
@@ -67,6 +81,21 @@ export function SettingsScreen({ session }: { session: Session }) {
       setRecoveryCodes(result.recoveryCodes as string[]);
       setEnrollment(null);
       totp.reset();
+    }),
+  );
+
+  const addPasskey = passkey.handleSubmit((values) =>
+    run("passkey", async () => {
+      const started = await action.mutateAsync({ action: "passkeys/begin", body: values });
+      const credential = (await navigator.credentials.create(
+        ceremonyOptions(started.options as ServerOptions, true),
+      )) as PublicKeyCredential | null;
+      if (!credential) return;
+      await action.mutateAsync({
+        action: "passkeys/finish",
+        body: { id: started.id, response: credentialJSON(credential) },
+      });
+      passkey.reset();
     }),
   );
 
@@ -186,6 +215,71 @@ export function SettingsScreen({ session }: { session: Session }) {
           </Switch>
         ) : null}
       </Section>
+
+      {session["passkeys-available"] ? (
+        <>
+          <Divider />
+
+          <Section title="Passkeys" icon={<IconFingerprint size={18} stroke={1.75} />}>
+            <ul className="flex flex-col gap-2">
+              {(session.passkeys ?? []).map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-default-200 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{entry.name}</p>
+                    <p className="text-xs text-default-500">
+                      {entry.lastUsedAt
+                        ? `Last used ${entry.lastUsedAt.slice(0, 10)}`
+                        : `Added ${entry.createdAt.slice(0, 10)}`}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    radius="sm"
+                    {...buttonProps(`passkey-${entry.id}`)}
+                    onPress={() =>
+                      void run(`passkey-${entry.id}`, async () => {
+                        await action.mutateAsync({
+                          action: "passkeys/remove",
+                          body: { id: entry.id },
+                        });
+                      })
+                    }
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+              {(session.passkeys ?? []).length === 0 ? (
+                <li className="text-sm text-default-500">No passkeys yet.</li>
+              ) : null}
+            </ul>
+
+            <form onSubmit={(event) => void addPasskey(event)} className="flex flex-col gap-3">
+              <TextField
+                label="Passkey name"
+                placeholder="This laptop"
+                registration={passkey.register("name")}
+                error={passkey.formState.errors.name}
+                maxLength={64}
+              />
+              <Button
+                type="submit"
+                color="primary"
+                radius="sm"
+                {...buttonProps("passkey")}
+                className="font-medium"
+              >
+                Add a passkey
+              </Button>
+            </form>
+          </Section>
+        </>
+      ) : null}
 
       <Divider />
 

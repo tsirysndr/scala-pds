@@ -8,7 +8,7 @@ export const session = (overrides: Partial<Session> = {}): Session => ({
   "email-enabled": false,
   "invite-required": false,
   "user-domain": "pds.example.com",
-  "passkeys-available": false,
+  "passkeys-available": true,
   ...overrides,
 });
 

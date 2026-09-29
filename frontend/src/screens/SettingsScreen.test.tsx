@@ -13,6 +13,7 @@ const signedIn = session({
   stage: "authenticated",
   handle: "alice.pds.example.com",
   appPasswords: [{ name: "phone", privileged: false, createdAt: "2026-01-01T00:00:00.000Z" }],
+  passkeys: [{ id: "credential-id", name: "laptop", createdAt: "2026-01-01T00:00:00.000Z" }],
   oauthSessions: [
     {
       id: "session-id",
@@ -86,6 +87,91 @@ describe("account settings", () => {
 
     expect(await screen.findByText("Those passwords do not match")).toBeInTheDocument();
     expect(calls.filter((call) => call.path === "/account/action/password/change")).toHaveLength(0);
+  });
+
+  it("registers a passkey through the browser credential API", async () => {
+    const calls = stubFetch({
+      "/account/session": () => [200, signedIn],
+      "/account/action/passkeys/begin": () => [
+        200,
+        {
+          ...signedIn,
+          result: {
+            id: "request-id",
+            options: {
+              publicKey: {
+                challenge: "Y2hhbGxlbmdl",
+                rp: { id: "pds.example.com", name: "pds.example.com" },
+                user: { id: "dXNlcg", name: "alice", displayName: "alice" },
+                pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+                excludeCredentials: [{ type: "public-key", id: "Y3JlZA" }],
+              },
+            },
+          },
+        },
+      ],
+      "/account/action/passkeys/finish": () => [200, signedIn],
+    });
+
+    const created: CredentialCreationOptions[] = [];
+    Object.defineProperty(navigator, "credentials", {
+      configurable: true,
+      value: {
+        create: async (options: CredentialCreationOptions) => {
+          created.push(options);
+          return {
+            id: "credential-id",
+            rawId: new Uint8Array([1, 2, 3]).buffer,
+            type: "public-key",
+            getClientExtensionResults: () => ({}),
+            response: {
+              clientDataJSON: new Uint8Array([4, 5]).buffer,
+              attestationObject: new Uint8Array([6, 7]).buffer,
+              getTransports: () => ["internal"],
+            },
+          } as unknown as Credential;
+        },
+      },
+    });
+
+    render(<App client={client()} />);
+
+    await userEvent.type(await screen.findByLabelText("Passkey name"), "this laptop");
+    await userEvent.click(screen.getByRole("button", { name: "Add a passkey" }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/account/action/passkeys/finish")).toBe(true),
+    );
+    expect(calls.find((call) => call.path === "/account/action/passkeys/begin")?.body).toEqual({
+      name: "this laptop",
+    });
+    // The challenge and user handle must reach the API as bytes, not base64.
+    const options = created[0]?.publicKey as PublicKeyCredentialCreationOptions;
+    expect(options.challenge).toBeInstanceOf(Uint8Array);
+    expect(options.user.id).toBeInstanceOf(Uint8Array);
+    expect(options.excludeCredentials?.[0]?.id).toBeInstanceOf(Uint8Array);
+
+    const finish = calls.find((call) => call.path === "/account/action/passkeys/finish")
+      ?.body as { id: string; response: string };
+    expect(finish.id).toBe("request-id");
+    expect(JSON.parse(finish.response).response.attestationObject).toBe("Bgc");
+  });
+
+  it("lists and removes passkeys", async () => {
+    const calls = stubFetch({
+      "/account/session": () => [200, signedIn],
+      "/account/action/passkeys/remove": () => [200, { ...signedIn, passkeys: [] }],
+    });
+    render(<App client={client()} />);
+
+    expect(await screen.findByText("laptop")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.path === "/account/action/passkeys/remove")?.body).toEqual({
+        id: "credential-id",
+      }),
+    );
   });
 
   it("starts authenticator enrollment and confirms it", async () => {

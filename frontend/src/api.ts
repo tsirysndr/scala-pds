@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type AppPassword = { name: string; privileged: boolean; createdAt: string };
 
+export type Passkey = { id: string; name: string; createdAt: string; lastUsedAt?: string };
+
 export type OAuthSession = {
   id: string;
   clientId: string;
@@ -19,6 +21,7 @@ export type Session = {
   handle?: string;
   factor?: "totp" | "email" | null;
   appPasswords?: AppPassword[];
+  passkeys?: Passkey[];
   recoveryCodes?: number;
   oauthSessions?: OAuthSession[];
   origin: string;
@@ -65,6 +68,8 @@ export const messages: Record<string, string> = {
   AccountTakedown: "This account has been suspended.",
   AccountDeactivated: "This account is deactivated.",
   Forbidden: "This server does not allow that.",
+  PasskeyRejected: "That passkey could not be registered. Try again.",
+  PasskeyNotFound: "That passkey was not found.",
   InternalServerError: "Something went wrong. Try again.",
 };
 

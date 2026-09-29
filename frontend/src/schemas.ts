@@ -52,6 +52,12 @@ export const appPasswordSchema = z.object({
 
 export type AppPasswordValues = z.infer<typeof appPasswordSchema>;
 
+export const passkeyNameSchema = z.object({
+  name: z.string().trim().min(1, "Name this passkey").max(64, "That name is too long"),
+});
+
+export type PasskeyNameValues = z.infer<typeof passkeyNameSchema>;
+
 export const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, "Enter your current password").max(1024),

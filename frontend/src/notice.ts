@@ -13,9 +13,11 @@ export function useNotice() {
       const text =
         error instanceof ApiError
           ? error.message
-          : error instanceof Error && error.message
-            ? error.message
-            : "Something went wrong. Try again.";
+          : error instanceof DOMException && error.name === "NotAllowedError"
+            ? "The passkey request was cancelled."
+            : error instanceof Error && error.message
+              ? error.message
+              : "Something went wrong. Try again.";
       setNotice({ text, tone: "danger" });
     },
   };

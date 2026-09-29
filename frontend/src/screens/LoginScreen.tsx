@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@heroui/react";
+import { Button, Divider } from "@heroui/react";
 import { useSetAtom } from "jotai";
-import { IconAt, IconLock } from "@tabler/icons-react";
+import { IconAt, IconFingerprint, IconLock } from "@tabler/icons-react";
 import type { Session } from "../api";
 import { useAction } from "../api";
 import { loginSchema, type LoginValues } from "../schemas";
@@ -12,6 +12,7 @@ import { Alert } from "../components/Alert";
 import { ClientPanel } from "../components/ClientPanel";
 import { TextField, PasswordField } from "../components/Field";
 import { usePending } from "../pending";
+import { ceremonyOptions, credentialJSON, type ServerOptions } from "../webauthn";
 
 export function LoginScreen({
   session,
@@ -41,6 +42,28 @@ export function LoginScreen({
     }),
   );
 
+  const passkeyLogin = () =>
+    run("passkey", async () => {
+      const identifier = form.getValues("identifier").trim();
+      if (!identifier) {
+        form.setError("identifier", { message: "Enter your username or email address first" });
+        return;
+      }
+      const started = await action.mutateAsync({
+        action: "login/passkey/begin",
+        body: { identifier },
+      });
+      const credential = (await navigator.credentials.get(
+        ceremonyOptions(started.options as ServerOptions, false),
+      )) as PublicKeyCredential | null;
+      if (!credential) return;
+      await action.mutateAsync({
+        action: "login/passkey/finish",
+        body: { id: started.id, response: credentialJSON(credential) },
+      });
+      await onAuthenticated();
+    });
+
   return (
     <AuthCard
       title="Sign in"
@@ -58,7 +81,7 @@ export function LoginScreen({
           registration={form.register("identifier")}
           error={form.formState.errors.identifier}
           startContent={<IconAt size={18} stroke={1.75} className="text-default-400" aria-hidden />}
-          autoComplete="username"
+          autoComplete="username webauthn"
           autoFocus={!loginHint}
           maxLength={2048}
         />
@@ -92,6 +115,28 @@ export function LoginScreen({
           Sign in
         </Button>
       </form>
+
+      {session["passkeys-available"] ? (
+        <>
+          <div className="flex items-center gap-3">
+            <Divider className="flex-1" />
+            <span className="text-xs text-default-400">or</span>
+            <Divider className="flex-1" />
+          </div>
+
+          <Button
+            variant="bordered"
+            size="lg"
+            radius="sm"
+            fullWidth
+            {...buttonProps("passkey")}
+            startContent={<IconFingerprint size={18} stroke={1.75} />}
+            onPress={() => void passkeyLogin()}
+          >
+            Sign in with a passkey
+          </Button>
+        </>
+      ) : null}
 
       {session["signup-enabled"] ? (
         <p className="text-center text-sm text-default-500">
