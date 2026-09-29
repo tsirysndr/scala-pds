@@ -63,4 +63,15 @@ describe("signup", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
     expect(screen.getByLabelText(/Invite code/)).toBeRequired();
   });
+
+  it("asks for no invite code when the server does not require one", async () => {
+    // The server ignores a supplied code unless it requires one.
+    stubFetch({ "/account/session": () => [200, session({ "invite-required": false })] });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    expect(await screen.findByLabelText(/Username/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Invite code/)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Invite code")).not.toBeInTheDocument();
+  });
 });

@@ -88,17 +88,21 @@ export function SignupScreen({
           maxLength={1024}
         />
 
-        <TextField
-          label={session["invite-required"] ? "Invite code" : "Invite code (optional)"}
-          placeholder="Invite code"
-          registration={form.register("inviteCode")}
-          error={form.formState.errors.inviteCode}
-          startContent={
-            <IconTicket size={18} stroke={1.75} className="text-default-400" aria-hidden />
-          }
-          isRequired={session["invite-required"]}
-          maxLength={256}
-        />
+        {/* The server ignores a code unless it requires one, so asking for it
+            when it does not would be asking for nothing. */}
+        {session["invite-required"] ? (
+          <TextField
+            label="Invite code"
+            placeholder="Invite code"
+            registration={form.register("inviteCode")}
+            error={form.formState.errors.inviteCode}
+            startContent={
+              <IconTicket size={18} stroke={1.75} className="text-default-400" aria-hidden />
+            }
+            isRequired
+            maxLength={256}
+          />
+        ) : null}
 
         <Button
           type="submit"
