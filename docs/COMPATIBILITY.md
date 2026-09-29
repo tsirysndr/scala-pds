@@ -148,7 +148,8 @@ proxy](/proxy/).
 | Empty MST root | `bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm` |
 | CAR archives | round trip, tampered block rejection, truncation, version rejection |
 | HTTP flows | end-to-end suites for accounts, repositories, the account interface and OAuth |
-| Reference implementation | `@atproto/repo`, `@atproto/crypto` and `@atproto/lexicon` verify the exported repository, the inclusion and exclusion proofs, the stored records and the firehose frames — see [interoperability](/interop/) |
+| Reference implementation | `@atproto/repo`, `@atproto/crypto` and `@atproto/lexicon` verify the exported repository, the inclusion and exclusion proofs, the stored records and the firehose frames |
+| Official client | `@atproto/api` signs in, writes, reads, lists and deletes records, describes the repository and rotates its session, validating every response against the lexicons — see [interoperability](/interop/) |
 
 One upstream "valid" NSID fixture exceeds the 253-character domain authority the
 current [NSID specification](https://atproto.com/specs/nsid) sets; the test
@@ -162,7 +163,8 @@ PDS; self-labels inside records are validated like any other field. See [the
 roadmap](/roadmap/).
 
 The reference TypeScript packages verify this server's repositories, proofs,
-records and firehose frames — see [interoperability](/interop/). What is still
-untested is a **real relay** consuming the firehose and a **real client** signing
-in, which is the remaining gap between "the reference libraries accept it" and
-"it interoperates in production".
+records and firehose frames, and the official client library drives it end to
+end — see [interoperability](/interop/). What is still untested is a **real
+relay** consuming the firehose and the **Bluesky application** itself signing in,
+which is the remaining gap between "the reference libraries accept it" and "it
+interoperates in production".

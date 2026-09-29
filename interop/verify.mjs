@@ -18,6 +18,7 @@ import {
 import { cborDecodeMulti } from "@atproto/common";
 import { parseDidKey, verifySignature } from "@atproto/crypto";
 import { Lexicons } from "@atproto/lexicon";
+import { AtpAgent } from "@atproto/api";
 import { CID } from "multiformats/cid";
 
 const BASE = process.env.PDS_URL ?? "http://127.0.0.1:3199";
@@ -308,6 +309,103 @@ await check("the server refuses what @atproto/lexicon refuses", async () => {
     return "both rejected";
   }
   throw new Error("the server accepted a record the reference rejects");
+});
+
+console.log("\nofficial client");
+
+// @atproto/api is what a real client runs: it builds the requests and
+// validates the responses against the published lexicons, so a wire-format
+// mismatch surfaces here rather than as a silent difference.
+const agent = new AtpAgent({ service: BASE });
+
+await check("@atproto/api signs in with a password", async () => {
+  await agent.login({ identifier: handle, password });
+  if (agent.session?.did !== did) throw new Error(`session did ${agent.session?.did} ≠ ${did}`);
+  return `${agent.session.handle}, active=${agent.session.active}`;
+});
+
+await check("@atproto/api reads the session back", async () => {
+  const session = await agent.com.atproto.server.getSession();
+  if (session.data.did !== did) throw new Error("getSession returned another DID");
+  if (session.data.handle !== handle) throw new Error("getSession returned another handle");
+  return session.data.handle;
+});
+
+let clientRecord;
+await check("@atproto/api writes and reads a record", async () => {
+  const written = await agent.com.atproto.repo.createRecord({
+    repo: did,
+    collection: "app.bsky.feed.post",
+    record: {
+      $type: "app.bsky.feed.post",
+      text: "written by the official client",
+      createdAt: new Date().toISOString(),
+    },
+  });
+  clientRecord = written.data;
+  const read = await agent.com.atproto.repo.getRecord({
+    repo: did,
+    collection: "app.bsky.feed.post",
+    rkey: written.data.uri.split("/").pop(),
+  });
+  if (read.data.cid !== written.data.cid) throw new Error("the record CID changed on read");
+  if (read.data.value.text !== "written by the official client") {
+    throw new Error("the record content differs");
+  }
+  return written.data.uri;
+});
+
+await check("@atproto/api lists records and describes the repository", async () => {
+  const listed = await agent.com.atproto.repo.listRecords({
+    repo: did,
+    collection: "app.bsky.feed.post",
+  });
+  if (listed.data.records.length < 3) {
+    throw new Error(`expected at least 3 posts, got ${listed.data.records.length}`);
+  }
+  const described = await agent.com.atproto.repo.describeRepo({ repo: did });
+  if (described.data.did !== did) throw new Error("describeRepo returned another DID");
+  if (!described.data.collections.includes("app.bsky.feed.post")) {
+    throw new Error("describeRepo omitted a collection in use");
+  }
+  return `${listed.data.records.length} posts, ${described.data.collections.length} collections`;
+});
+
+await check("@atproto/api rotates the session with a refresh token", async () => {
+  const before = agent.session?.accessJwt;
+  const refreshed = await agent.com.atproto.server.refreshSession(undefined, {
+    headers: { authorization: `Bearer ${agent.session.refreshJwt}` },
+  });
+  if (refreshed.data.did !== did) throw new Error("refreshSession returned another DID");
+  if (refreshed.data.accessJwt === before) throw new Error("the access token did not change");
+  return "rotated";
+});
+
+await check("@atproto/api deletes the record it wrote", async () => {
+  await agent.com.atproto.repo.deleteRecord({
+    repo: did,
+    collection: "app.bsky.feed.post",
+    rkey: clientRecord.uri.split("/").pop(),
+  });
+  try {
+    await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: "app.bsky.feed.post",
+      rkey: clientRecord.uri.split("/").pop(),
+    });
+  } catch (error) {
+    return "deleted";
+  }
+  throw new Error("the deleted record is still readable");
+});
+
+await check("@atproto/api reads the server description", async () => {
+  const described = await agent.com.atproto.server.describeServer();
+  if (described.data.did !== describe.did) throw new Error("describeServer disagrees");
+  if (!Array.isArray(described.data.availableUserDomains)) {
+    throw new Error("availableUserDomains is not a list");
+  }
+  return described.data.did;
 });
 
 console.log("\nfirehose");

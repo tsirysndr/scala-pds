@@ -55,14 +55,15 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 19. **Managed key rotation** — new signing and rotation keys published through
     the directory, with the head re-signed so exports keep verifying.
 20. **Reference verification** — the atproto TypeScript packages check the
-    server's repositories, proofs, records and firehose frames on every CI run.
+    server's repositories, proofs, records and firehose frames on every CI run,
+    and the official client library drives it end to end.
 
 ## Next
 
 ### Interoperability
 
-- Run an independent client (a Bluesky app build, `goat`, `atcute`) against a
-  deployed server and record the result.
+- Point the Bluesky application itself at a deployed server and record the
+  result; the official client *library* already drives it in CI.
 - Have a real relay consume the firehose and confirm it accepts the commits.
 - Check the OAuth server with a reference client implementation.
 
@@ -94,5 +95,6 @@ and tested.
 
 The first four are demonstrated by the test suite, and the repository, proof,
 record and firehose formats are additionally verified by the reference
-TypeScript packages — see [interoperability](/interop/). A real relay and a real
-client remain the honest gap.
+TypeScript packages while the official client library drives the server end to
+end — see [interoperability](/interop/). A real relay and the Bluesky
+application itself remain the honest gap.

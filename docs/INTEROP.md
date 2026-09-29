@@ -10,9 +10,10 @@ bash scripts/interop.sh
 ```
 
 It builds the assembly, starts a throwaway server on a temporary database,
-creates an account, writes records, and then hands the output to
-`@atproto/repo`, `@atproto/crypto` and `@atproto/lexicon`. Nothing in the check
-is written here: every verdict comes from the reference implementation.
+creates an account, writes records, and then hands the server to
+`@atproto/api`, `@atproto/repo`, `@atproto/crypto` and `@atproto/lexicon`.
+Nothing in the check is written here: every verdict comes from the reference
+implementation.
 
 ```
 repository
@@ -32,11 +33,20 @@ lexicons
   ok   @atproto/lexicon accepts every record the server stored — 4 records against 108 schemas
   ok   the server refuses what @atproto/lexicon refuses — both rejected
 
+official client
+  ok   @atproto/api signs in with a password — interop.localhost, active=true
+  ok   @atproto/api reads the session back — interop.localhost
+  ok   @atproto/api writes and reads a record — at://did:web:…/app.bsky.feed.post/3mwn…
+  ok   @atproto/api lists records and describes the repository — 3 posts, 3 collections
+  ok   @atproto/api rotates the session with a refresh token — rotated
+  ok   @atproto/api deletes the record it wrote — deleted
+  ok   @atproto/api reads the server description — did:web:localhost
+
 firehose
   ok   @atproto/repo verifies the blocks in a #commit frame — 6 frames, 3 blocks
   ok   the frame sequence starts with identity, account and sync
 
-13/13 checks passed
+20/20 checks passed
 ```
 
 ## What each check establishes
@@ -52,14 +62,20 @@ firehose
 | Record decoding | `cborToLexRecord` | the DAG-CBOR the server wrote is read by the reference decoder |
 | Lexicon validation | `Lexicons.validate` | every stored record satisfies its published schema |
 | Mutual rejection | `Lexicons.validate` + the server | the server refuses a record the reference also refuses |
+| Client session | `AtpAgent.login`, `getSession`, `refreshSession` | the official client library authenticates, reads its session and rotates it |
+| Client writes | `AtpAgent.com.atproto.repo.*` | it creates, reads, lists and deletes records, and describes the repository |
 | Firehose blocks | `readCarWithRoot`, `verifyCommitSig` | a `#commit` frame's CAR is rooted at the commit it announces, and that commit verifies |
 | Frame order | — | a fresh account emits `#identity`, `#account`, `#sync`, then `#commit` |
+
+`@atproto/api` builds its requests and **validates every response against the
+published lexicons**, so a wire-format difference fails the check rather than
+passing silently.
 
 ## What it does not cover yet
 
 - **A real relay.** The frames verify, but no relay has consumed this server.
-- **A real client.** The repository verifies, but no Bluesky app build has signed
-  in against it.
+- **A Bluesky app build.** The official client *library* drives the server, but
+  the application itself has not been pointed at it.
 - **OAuth.** The authorization server is checked by this repository's own
   end-to-end suite, not yet by a reference client implementation.
 - **Account migration** between two independent servers.
