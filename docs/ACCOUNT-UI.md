@@ -57,6 +57,7 @@ installed monospace fonts, because the account policy grants no `font-src`.
 | --------------------------- | -------------------------------------------------------------------------------------- |
 | Sign in                     | the session stage is `login`                                                           |
 | Create account              | the visitor chose signup, or a client asked for `prompt=create`, and signup is enabled |
+| — its invite field          | only when the server requires one; a code is ignored otherwise                         |
 | Confirm it's you            | the stage is `factor`; an authenticator or emailed code is outstanding                 |
 | Authorize access            | an OAuth flow is attached to an authenticated owner                                    |
 | Continue to the application | an OAuth flow exists and the owner is already signed in                                |
