@@ -103,6 +103,22 @@ cannot be replayed inside its window.
 Rate-limit counters are in-process unless `PDS_REDIS_URL` is set, in which case
 the window is shared and the limit is the total across every instance.
 
+### Against the reference PDS
+
+The reference implementation limits a single address to 3000 requests per five
+minutes — 600 a minute — so `PDS_RATE_LIMIT_PER_MINUTE=600` matches its rate.
+Two differences remain, and neither is a number:
+
+Its window is five minutes long, so it allows all 3000 requests at once and then
+nothing until the window turns. A one-minute window admits 600 a minute but
+refuses a burst of 3000, which is the stricter behaviour of the two at the same
+nominal rate.
+
+It also applies limits this server does not: per-method limits, and shared
+repository-write budgets of 5000 points an hour and 35000 a day, where a create
+costs 3 points, a put 2 and a delete 1. Here a write costs the same as a read,
+and only the per-address window applies.
+
 ## Firehose
 
 | Limit            | Value                                            |
