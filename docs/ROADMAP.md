@@ -64,6 +64,9 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 22. **Directory reconciliation** — managed identities compared against the
     directory's log head, so an operation signed outside this server is found
     and either adopted or reported.
+23. **Moderation service access** — a configured moderation service acts on the
+    administrative methods with a scoped service token of its own, rather than
+    the operator's password.
 
 ## Next
 
@@ -75,8 +78,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Records and Lexicons
 
-- `com.atproto.label.*` emission, and an Ozone integration for moderation
-  decisions taken elsewhere.
+- `com.atproto.label.*` emission. A PDS is not a labeler, so this is only the
+  self-label surface and whatever a hosted labeler would need.
 
 ## Completion criteria
 

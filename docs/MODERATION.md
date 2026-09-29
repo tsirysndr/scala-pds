@@ -70,8 +70,27 @@ owner, with their password and an emailed code) and
 remove the account row, its repository blocks and its blobs. Every dependent row
 — sessions, app passwords, tokens, preferences, OAuth grants — cascades with it.
 
+## A moderation service acting here
+
+The administrator password is an operator credential and should not be handed to
+another service. Set `PDS_MOD_SERVICE_DID` to a moderation service's DID — an
+Ozone deployment, say — and it can call the administrative methods with its own
+identity instead:
+
+```
+Authorization: Bearer <service token signed by the moderation service>
+```
+
+The token is checked like any other [inbound service
+token](/migration/#service-authentication): the issuer must be exactly the
+configured DID, `aud` must be this server's DID, `lxm` must name the method being
+called, `exp` must be in the future, and the signature must verify against the
+`#atproto` verification method in the moderation service's own DID document. A
+token that fails any of those is refused as unauthorized, the same as a wrong
+password — so a token scoped to one method cannot be replayed against another.
+
 ## What is not here yet
 
-Label emission (`com.atproto.label.*`) and an Ozone integration are [on the
-roadmap](/roadmap/). This server implements the takedown side of moderation:
-the mechanism a moderation service acts through, not the service itself.
+Label emission (`com.atproto.label.*`) is [on the roadmap](/roadmap/). This
+server implements the takedown side of moderation: the mechanism a moderation
+service acts through, not the service itself.

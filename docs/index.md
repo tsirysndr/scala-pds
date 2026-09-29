@@ -86,7 +86,8 @@ WebSocket firehose other services can follow.
 - **Federation** — a durable event sequence and `subscribeRepos` over
   WebSocket, plus relay crawl requests at startup.
 - **Services** — an authenticated proxy to AppViews and labelers, private
-  preferences, and the administrative and moderation APIs.
+  preferences, and the administrative and moderation APIs, which a configured
+  moderation service can call with a service token of its own.
 - **Migration** — inbound service authentication, DID adoption vouched for by
   the old host, and a driver that moves a whole account between two servers.
 - **Operations** — Prometheus metrics, a structured access log, checksummed

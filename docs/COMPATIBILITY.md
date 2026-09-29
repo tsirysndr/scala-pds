@@ -4,7 +4,7 @@
 routes. "Auth" is what the method requires: *none*, *session* (an access token,
 including a scoped OAuth token), *privileged* (a session that is not a plain app
 password), *refresh* (a refresh token), or *admin* (`PDS_ADMIN_PASSWORD` over
-HTTP Basic).
+HTTP Basic, or a scoped service token from `PDS_MOD_SERVICE_DID`).
 
 ## com.atproto.server
 
@@ -158,6 +158,7 @@ preserves the fixture and asserts rejection.
 
 Label *emission* belongs to a labeler rather than a PDS; self-labels inside
 records are validated like any other field. See [the roadmap](/roadmap/).
+
 
 The reference TypeScript packages verify this server's repositories, proofs,
 records and firehose frames, the official client library drives it end to end,
