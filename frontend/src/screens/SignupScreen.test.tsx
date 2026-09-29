@@ -64,6 +64,44 @@ describe("signup", () => {
     expect(screen.getByLabelText(/Invite code/)).toBeRequired();
   });
 
+  it("catches a blank invite code in the browser when one is required", async () => {
+    const calls = stubFetch({
+      "/account/session": () => [200, session({ "invite-required": true })],
+    });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    await userEvent.type(screen.getByLabelText(/Username/), "alice");
+    await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
+    await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("Enter your invite code")).toBeInTheDocument();
+    expect(calls.filter((call) => call.path === "/account/action/signup")).toHaveLength(0);
+  });
+
+  it("submits the invite code the visitor typed", async () => {
+    const calls = stubFetch({
+      "/account/session": () => [200, session({ "invite-required": true })],
+      "/account/action/signup": () => [200, session({ stage: "authenticated" })],
+    });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    await userEvent.type(screen.getByLabelText(/Username/), "alice");
+    await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
+    await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Invite code/), "pds-example-com-abc12");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/account/action/signup")).toBe(true),
+    );
+    expect(calls.find((call) => call.path === "/account/action/signup")?.body).toMatchObject({
+      inviteCode: "pds-example-com-abc12",
+    });
+  });
+
   it("asks for no invite code when the server does not require one", async () => {
     // The server ignores a supplied code unless it requires one.
     stubFetch({ "/account/session": () => [200, session({ "invite-required": false })] });

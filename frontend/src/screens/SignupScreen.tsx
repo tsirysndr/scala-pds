@@ -27,8 +27,10 @@ export function SignupScreen({
   const { run, buttonProps, notice } = usePending();
   const domain = session["user-domain"];
 
+  const inviteRequired = session["invite-required"];
+
   const form = useForm<SignupValues>({
-    resolver: zodResolver(signupSchema),
+    resolver: zodResolver(signupSchema(inviteRequired)),
     defaultValues: { username: "", email: "", password: "", inviteCode: "" },
   });
 
@@ -90,7 +92,7 @@ export function SignupScreen({
 
         {/* The server ignores a code unless it requires one, so asking for it
             when it does not would be asking for nothing. */}
-        {session["invite-required"] ? (
+        {inviteRequired ? (
           <TextField
             label="Invite code"
             placeholder="Invite code"
