@@ -46,9 +46,10 @@ object SyncApi:
   private def getRepo(env: Env, request: Request[IO]): IO[Response[IO]] =
     for
       did <- account(env, Xrpc.requireParam(request, "did"))
+      since = Xrpc.param(request, "since").filter(_.nonEmpty)
       prepared <- env.database.read { connection =>
         Accounts.requireActive(connection, did)
-        RepoStore.exportCids(connection, did)
+        RepoStore.exportCids(connection, did, since)
       }
       exported <- IO.fromEither(prepared.left.map(XrpcError.invalidRequest))
       (head, cids) = exported

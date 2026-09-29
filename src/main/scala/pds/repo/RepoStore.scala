@@ -185,12 +185,26 @@ object RepoStore:
     * every record reachable from the current root. Only the identifiers are
     * collected here so the bytes can be streamed one block at a time.
     */
-  def exportCids(connection: Connection, did: String): Either[String, (Head, Vector[Cid])] =
+  def exportCids(
+      connection: Connection, did: String, since: Option[String] = None
+  ): Either[String, (Head, Vector[Cid])] =
     head(connection, did).toRight("Repository was not found").flatMap { current =>
       val store = new Mst.Store(blockReader(connection, did))
       for
         nodes <- MstOps.nodeCids(store, current.root)
         tree <- store.tree(current.root)
         leaves <- MstOps.entries(store, tree)
-      yield (current, ((current.commit.cid +: nodes) ++ leaves.map(_._2)).distinct)
+      yield
+        val all = ((current.commit.cid +: nodes) ++ leaves.map(_._2)).distinct
+        // A diff carries the commit plus only what a later revision introduced;
+        // the consumer already holds everything up to `since`.
+        val filtered = since.fold(all) { rev =>
+          val newer = revisionsAfter(connection, did, rev)
+          all.filter(cid => cid == current.commit.cid || newer.contains(cid))
+        }
+        (current, filtered)
     }
+
+  private def revisionsAfter(connection: Connection, did: String, rev: String): Set[Cid] =
+    Sql.query(connection, "SELECT cid FROM repo_blocks WHERE did = ? AND rev > ?", did, rev)(
+      _.string("cid")).flatMap(Cid.parse).toSet

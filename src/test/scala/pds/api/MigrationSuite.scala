@@ -260,3 +260,36 @@ class MigrationSuite extends munit.CatsEffectSuite:
       assertEquals(hosted, Right(true))
       assertEquals(unresolvable, Right(false))
   }
+
+  test("getRepo with since carries only what later revisions introduced") {
+    harness().use { server =>
+      for
+        auth <- register(server, "alice")
+        (access, did) = auth
+        first <- write(server, access, did, 1)
+        early = first._2.hcursor.get[String]("cid").toOption.get
+        middle <- server.json(get(s"/xrpc/com.atproto.sync.getLatestCommit?did=$did"))
+        rev = middle._2.hcursor.get[String]("rev").toOption.get
+        _ <- write(server, access, did, 2).void
+        _ <- write(server, access, did, 3).void
+        whole <- exportCar(server, did)
+        diff <- server.run(get(
+          s"/xrpc/com.atproto.sync.getRepo?did=$did&since=${java.net.URLEncoder.encode(rev, "UTF-8")}"))
+        diffBytes <- diff.body.compile.to(Array)
+        latest <- server.json(get(s"/xrpc/com.atproto.sync.getLatestCommit?did=$did"))
+      yield
+        val (wholeRoots, wholeBlocks) = Car.read(whole).fold(fail(_), identity)
+        val (diffRoots, diffBlocks) = Car.read(diffBytes).fold(fail(_), identity)
+        // Both archives are rooted at the current commit.
+        assertEquals(diffRoots, wholeRoots)
+        assertEquals(diffRoots.head.toString, latest._2.hcursor.get[String]("cid").toOption.get)
+        assert(clue(diffBlocks.length) < clue(wholeBlocks.length))
+        // Every block in the diff is one the full archive also has.
+        val complete = wholeBlocks.map(_._1).toSet
+        assert(diffBlocks.map(_._1).forall(complete.contains))
+        // The first post's record block predates `since`, so it is not resent,
+        // though the full archive still carries it.
+        assert(complete.map(_.toString).contains(early))
+        assert(!diffBlocks.map(_._1.toString).contains(early))
+    }
+  }
