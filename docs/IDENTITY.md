@@ -70,6 +70,11 @@ Resolved documents are cached in the database for ten minutes.
 `com.atproto.identity.refreshIdentity` drops the entry and emits an `#identity`
 event for hosted accounts.
 
+The same route is **served** for handles hosted here, so another server can
+resolve them without a DNS record: `GET /.well-known/atproto-did` answers with
+the bare DID of the account whose handle is the request's `Host`, as
+`text/plain` and `no-store`, and `404` for a domain no handle here claims.
+
 ## Changing a handle
 
 `com.atproto.identity.updateHandle` accepts a handle under `PDS_USER_DOMAIN`

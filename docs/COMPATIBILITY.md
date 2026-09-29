@@ -126,6 +126,7 @@ proxy](/proxy/).
 | `GET /xrpc/_health`, `GET /_health`                         | liveness, with and without a database round trip       |
 | `GET /metrics`                                              | Prometheus metrics, administrator credentials required |
 | `GET /.well-known/did.json`                                 | a `did:web` document, chosen by the request `Host`     |
+| `GET /.well-known/atproto-did`                              | the DID of the handle the request `Host` names         |
 | `GET /.well-known/oauth-authorization-server`               | OAuth server metadata                                  |
 | `GET /.well-known/oauth-protected-resource`                 | OAuth resource metadata                                |
 | `POST /oauth/par`                                           | pushed authorization requests                          |
@@ -134,6 +135,31 @@ proxy](/proxy/).
 | `POST /oauth/token`, `POST /oauth/revoke`                   | tokens                                                 |
 | `GET /account`, `/account/app.js`, `/account/style.css`     | the account interface                                  |
 | `GET /account/session`, `POST /account/action/*`            | its backing API                                        |
+
+## Cross-origin access
+
+A browser application on another origin reaches XRPC, the OAuth endpoints and
+the identity documents, so those carry `Access-Control-Allow-Origin: *`. The
+account interface and its API do not: they authenticate with cookies, and a
+wildcard origin cannot carry credentials, so they stay same-origin and are
+additionally guarded by `Origin`, `Sec-Fetch-Site` and a CSRF token — see
+[account security](/account-security/).
+
+| Header                          | Value                                                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `Access-Control-Allow-Origin`   | `*`                                                                                                                                      |
+| `Access-Control-Allow-Methods`  | `GET, HEAD, POST, OPTIONS`                                                                                                               |
+| `Access-Control-Allow-Headers`  | the names the preflight asked for, or `Authorization, Content-Type, DPoP, atproto-accept-labelers, atproto-proxy` when it asked for none |
+| `Access-Control-Expose-Headers` | `DPoP-Nonce, WWW-Authenticate, Retry-After, Atproto-Repo-Rev, Atproto-Content-Labelers`                                                  |
+| `Access-Control-Max-Age`        | `600`, on preflight replies                                                                                                              |
+| `Vary`                          | `Access-Control-Request-Method, Access-Control-Request-Headers`, on preflight replies                                                    |
+
+Requested header names are **reflected** rather than matched against a fixed
+list, which would refuse a client sending one this server did not anticipate.
+Only RFC 7230 tokens are echoed, so a reflected value cannot introduce a second
+header; anything else falls back to the default set. `Expose-Headers` matters as
+much as the rest: without it a browser cannot read `DPoP-Nonce`, and the DPoP
+nonce handshake never completes.
 
 ## Verification evidence
 

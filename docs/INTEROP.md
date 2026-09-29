@@ -47,7 +47,11 @@ firehose
   ok   the frame sequence starts with identity, account and sync
   ok   a cursor beyond the sequence is refused with an error frame — FutureCursor
 
-21/21 checks passed
+cross-origin
+  ok   a browser preflight is answered for the headers a client sends — max-age 600
+  ok   the identity documents are readable from another origin — did.json 200, atproto-did 404
+
+23/23 checks passed
 ```
 
 The second half drives the authorization server with the reference OAuth
@@ -76,26 +80,27 @@ resource access
 
 ## What each check establishes
 
-| Check                     | Reference function                               | What it proves                                                                                                            |
-| ------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| DID key                   | `parseDidKey`                                    | the published `publicKeyMultibase` is a well-formed `did:key` the reference can use                                       |
-| Repository                | `verifyRepoCar`                                  | the CAR parses, the commit signature verifies, and the Merkle search tree rebuilds and yields exactly the records written |
-| Wrong key, tampered bytes | `verifyRepoCar`                                  | the archive is genuinely bound to the signing key and its own bytes                                                       |
-| Inclusion proof           | `verifyProofs`                                   | `com.atproto.sync.getRecord` carries a path that proves the record's CID against the signed root                          |
-| Record in the proof       | `verifyRecords`                                  | that proof also carries the record itself, and it decodes to what was written                                             |
-| Exclusion proof           | `verifyProofs`                                   | absence is provable, not merely asserted                                                                                  |
-| Record decoding           | `cborToLexRecord`                                | the DAG-CBOR the server wrote is read by the reference decoder                                                            |
-| Lexicon validation        | `Lexicons.validate`                              | every stored record satisfies its published schema                                                                        |
-| Mutual rejection          | `Lexicons.validate` + the server                 | the server refuses a record the reference also refuses                                                                    |
-| Client session            | `AtpAgent.login`, `getSession`, `refreshSession` | the official client library authenticates, reads its session and rotates it                                               |
-| Client writes             | `AtpAgent.com.atproto.repo.*`                    | it creates, reads, lists and deletes records, and describes the repository                                                |
-| Firehose blocks           | `readCarWithRoot`, `verifyCommitSig`             | a `#commit` frame's CAR is rooted at the commit it announces, and that commit verifies                                    |
-| Frame order               | —                                                | a fresh account emits `#identity`, `#account`, `#sync`, then `#commit`                                                    |
-| Cursor bounds             | —                                                | a cursor past the end is answered with an `op: -1` `FutureCursor` frame and nothing more                                  |
-| Discovery and PAR         | `NodeOAuthClient.authorize`                      | the metadata documents are conformant and the pushed request is accepted with PKCE and a DPoP key                         |
-| Token exchange            | `NodeOAuthClient.callback`                       | the code redeems for a DPoP-bound token, and the client resolves the account's identity back to this server               |
-| Resource access           | `Agent` over `OAuthSession`                      | the DPoP-bound token is accepted by XRPC, including a write, with the client handling the nonce handshake                 |
-| Refresh and revocation    | `OAuthSession.getTokenInfo`, `signOut`           | the refresh token rotates, and revocation actually stops the session                                                      |
+| Check                     | Reference function                               | What it proves                                                                                                                            |
+| ------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| DID key                   | `parseDidKey`                                    | the published `publicKeyMultibase` is a well-formed `did:key` the reference can use                                                       |
+| Repository                | `verifyRepoCar`                                  | the CAR parses, the commit signature verifies, and the Merkle search tree rebuilds and yields exactly the records written                 |
+| Wrong key, tampered bytes | `verifyRepoCar`                                  | the archive is genuinely bound to the signing key and its own bytes                                                                       |
+| Inclusion proof           | `verifyProofs`                                   | `com.atproto.sync.getRecord` carries a path that proves the record's CID against the signed root                                          |
+| Record in the proof       | `verifyRecords`                                  | that proof also carries the record itself, and it decodes to what was written                                                             |
+| Exclusion proof           | `verifyProofs`                                   | absence is provable, not merely asserted                                                                                                  |
+| Record decoding           | `cborToLexRecord`                                | the DAG-CBOR the server wrote is read by the reference decoder                                                                            |
+| Lexicon validation        | `Lexicons.validate`                              | every stored record satisfies its published schema                                                                                        |
+| Mutual rejection          | `Lexicons.validate` + the server                 | the server refuses a record the reference also refuses                                                                                    |
+| Client session            | `AtpAgent.login`, `getSession`, `refreshSession` | the official client library authenticates, reads its session and rotates it                                                               |
+| Client writes             | `AtpAgent.com.atproto.repo.*`                    | it creates, reads, lists and deletes records, and describes the repository                                                                |
+| Firehose blocks           | `readCarWithRoot`, `verifyCommitSig`             | a `#commit` frame's CAR is rooted at the commit it announces, and that commit verifies                                                    |
+| Frame order               | —                                                | a fresh account emits `#identity`, `#account`, `#sync`, then `#commit`                                                                    |
+| Cursor bounds             | —                                                | a cursor past the end is answered with an `op: -1` `FutureCursor` frame and nothing more                                                  |
+| Cross-origin access       | —                                                | a preflight allows the headers a client actually sends, exposes `DPoP-Nonce`, and the identity documents are readable from another origin |
+| Discovery and PAR         | `NodeOAuthClient.authorize`                      | the metadata documents are conformant and the pushed request is accepted with PKCE and a DPoP key                                         |
+| Token exchange            | `NodeOAuthClient.callback`                       | the code redeems for a DPoP-bound token, and the client resolves the account's identity back to this server                               |
+| Resource access           | `Agent` over `OAuthSession`                      | the DPoP-bound token is accepted by XRPC, including a write, with the client handling the nonce handshake                                 |
+| Refresh and revocation    | `OAuthSession.getTokenInfo`, `signOut`           | the refresh token rotates, and revocation actually stops the session                                                                      |
 
 `@atproto/api` builds its requests and **validates every response against the
 published lexicons**, so a wire-format difference fails the check rather than
