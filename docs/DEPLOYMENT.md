@@ -95,6 +95,56 @@ WantedBy=multi-user.target
 
 Keep `/etc/pds/pds.env` at mode 600: it holds the master key.
 
+### As a user service
+
+A single-host deployment needs no root. The unit goes in
+`~/.config/systemd/user/scala-pds.service` with `WantedBy=default.target`, and
+`loginctl enable-linger <user>` is what makes it start at boot and survive
+logout — without it the service stops when the last session ends. A JDK managed
+by [mise](https://mise.jdx.dev) is referenced by its absolute install path,
+because a user unit does not run a login shell:
+
+```ini
+ExecStart=%h/.local/share/mise/installs/java/temurin-21/bin/java -Xmx768m -jar %h/github/scala-pds/target/scala-3.3.7/scala-pds.jar
+```
+
+Set `-Xmx` explicitly rather than `MaxRAMPercentage` when the machine runs other
+services, so the PDS cannot claim a share of memory they need.
+
+Replacing the jar under a running JVM makes it fail with
+`ClassNotFoundException`, because classes load lazily from the archive. Stop the
+service, copy, then start.
+
+## Behind a tunnel
+
+A host with no public IP can be served through a tunnel — a Cloudflare tunnel,
+say — which terminates TLS at the edge and forwards plain HTTP inland. The PDS
+binds loopback, a local reverse proxy routes the hostname to it, and the tunnel
+points at the proxy:
+
+```
+internet → TLS at the edge → tunnel → Caddy :80 → PDS 127.0.0.1:3000
+```
+
+```
+http://pds.example.com {
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Forwarded-Proto https
+	}
+}
+```
+
+The `http://` prefix is deliberate: the proxy must not try to obtain its own
+certificate for a name whose TLS lives at the edge. `PDS_PUBLIC_URL` stays
+`https://…` regardless, because that is the origin clients and the directory
+see. `reverse_proxy` passes WebSocket upgrades through, so `subscribeRepos`
+works without extra configuration.
+
+Two things to confirm once it is up, because both fail silently otherwise: that a
+relay accepts `requestCrawl` — it fetches the host back over the public name, so
+it fails if the tunnel or proxy is wrong — and that the firehose WebSocket
+actually upgrades end to end.
+
 ## Startup order
 
 Migrations run inside one transaction, under a PostgreSQL advisory lock, *before*
