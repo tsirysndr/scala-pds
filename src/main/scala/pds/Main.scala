@@ -1,6 +1,7 @@
 package pds
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.syntax.all.*
 import io.circe.Json
 import java.nio.file.{Files, Path, Paths}
 import org.http4s.{HttpApp, Uri}
@@ -14,7 +15,7 @@ import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
 import pds.tools.{AccountRecovery, Backup, KeyRotation, MasterKeyRotation, Migration,
-  MigrationPlan}
+  MigrationPlan, Reconcile}
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -41,12 +42,15 @@ object Main extends IOApp:
           masterKey(env, database).flatMap(recoverAccount(config, database, _, env, rest))
         case "rotate-account-keys" :: rest =>
           masterKey(env, database).flatMap(rotateAccountKeys(config, database, _, env, rest))
+        case "reconcile" :: rest =>
+          masterKey(env, database).flatMap(reconcile(config, database, _, rest))
         case other =>
           IO.println(s"scala-pds: unknown command ${other.mkString(" ")}") *>
             IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key |" +
               " recover-account <identifier> <reference> |" +
               " rotate-account-keys <identifier> [signing|rotation|both] |" +
-              " backup <path> | verify-backup <path> | migrate <flags>]").as(ExitCode(2))
+              " backup <path> | verify-backup <path> | migrate <flags> |" +
+              " reconcile [--identifier <id>] [--repair]]").as(ExitCode(2))
     yield code
 
   /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
@@ -144,6 +148,39 @@ object Main extends IOApp:
       case _ =>
         IO.println("usage: scala-pds rotate-account-keys <identifier> [signing|rotation|both]")
           .as(ExitCode(2))
+
+  /** Compares managed identities against the directory that publishes them. */
+  private def reconcile(
+      config: ServerConfig,
+      database: DatabaseConfig,
+      sealing: Sealing,
+      arguments: List[String]
+  ): IO[ExitCode] =
+    val identifier = arguments.sliding(2, 2).collectFirst {
+      case List("--identifier", value) => value
+    }
+    val repair = arguments.contains("--repair")
+    val resources = for
+      db <- Database.resource(database)
+      client <- EmberClientBuilder.default[IO].withTimeout(15.seconds).build
+    yield (db, client)
+    resources.use { (db, client) =>
+      for
+        _ <- Migrations.run(db)
+        net = new Net(client, !config.secure)
+        schemas <- Schemas.offline
+        env = Env(config, db, sealing, net, new Resolver(net, db, config), schemas)
+        result <- Reconcile.run(env, identifier, repair)
+        _ <- IO.println(s"scala-pds: checked ${result.checked} managed identity/identities")
+        _ <- result.drift.traverse_ { drift =>
+          IO.println(s"scala-pds: ${drift.did} (${drift.handle}) ${drift.kind}: ${drift.detail}" +
+            (if drift.repaired then " — repaired" else ""))
+        }
+        _ <- IO.whenA(result.drift.isEmpty)(
+          IO.println("scala-pds: every managed identity matches the directory"))
+      yield if result.outstanding.isEmpty then ExitCode.Success else ExitCode(3)
+    }.handleErrorWith(error =>
+      IO.println(s"scala-pds: reconciliation failed: ${error.getMessage}").as(ExitCode.Error))
 
   private val migrateUsage =
     "usage: scala-pds migrate --from <url> --identifier <handle|did|email> --password <password>" +
