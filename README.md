@@ -5,12 +5,16 @@ a zero-configuration SQLite fallback.
 **In development: not yet a fully federating PDS.**
 
 Implemented: hosted `did:plc`/`did:web` accounts, sessions and app passwords,
-email security flows and TOTP, OAuth with DPoP and scoped consent, signed
-repositories with verified CAR import and export, content-addressed blobs, a
-WebSocket firehose, an authenticated service proxy, account migration primitives,
-and administrative/moderation APIs — 71 XRPC methods, plus a React account and
-consent interface. See the [compatibility matrix](docs/COMPATIBILITY.md) for
-exact coverage and the [roadmap](docs/ROADMAP.md) for what remains.
+email security flows, TOTP and WebAuthn passkeys, OAuth with DPoP and scoped
+consent, signed repositories with Lexicon-validated records and verified CAR
+import and export, content-addressed blobs in the database or an S3-compatible
+bucket, a WebSocket firehose with bounded retention and block collection, an
+authenticated service proxy, account migration primitives, and
+administrative/moderation APIs — 71 XRPC methods, plus a React account and
+consent interface, Prometheus metrics and host commands for backups, key
+rotation and account recovery. See the [compatibility
+matrix](docs/COMPATIBILITY.md) for exact coverage and the
+[roadmap](docs/ROADMAP.md) for what remains.
 
 ## Quick start
 

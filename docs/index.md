@@ -11,9 +11,10 @@ PostgreSQL, or in a single SQLite file when nothing is configured, and serves
 interface.
 
 **In development: not yet a fully federating PDS.** Signed repositories,
-sessions, OAuth with DPoP, blobs, the firehose and administrative APIs are
-implemented and tested; see the [compatibility matrix](/compatibility/) for
-exact coverage and the [roadmap](/roadmap/) for what remains.
+Lexicon-validated records, sessions, OAuth with DPoP, passkeys, blobs, the
+firehose and administrative APIs are implemented and tested; see the
+[compatibility matrix](/compatibility/) for exact coverage and the
+[roadmap](/roadmap/) for what remains.
 
 <div class="card-grid">
 
@@ -73,14 +74,20 @@ WebSocket firehose other services can follow.
 - **Identity** — `did:plc` genesis and update operations, `did:web` documents,
   DNS and HTTPS handle resolution with a bounded cache.
 - **Accounts** — registration, sessions, refresh rotation, app passwords,
-  invite codes, email flows, TOTP, deactivation, deletion and takedowns.
+  invite codes, email flows, TOTP, WebAuthn passkeys, deactivation, deletion and
+  takedowns.
+- **Records** — validated against a pinned Lexicon catalog, or against a
+  Lexicon published and signed by its own namespace authority.
 - **Repositories** — signed commits, compare-and-swap writes, batched
   `applyWrites`, record listing, CAR export and verified import.
-- **Blobs** — content-addressed upload and download with reference checks.
+- **Blobs** — content-addressed upload and download with reference checks, in
+  the database or an S3-compatible bucket.
 - **Federation** — a durable event sequence and `subscribeRepos` over
   WebSocket, plus relay crawl requests at startup.
 - **Services** — an authenticated proxy to AppViews and labelers, private
   preferences, and the administrative and moderation APIs.
+- **Operations** — Prometheus metrics, a structured access log, checksummed
+  backups, master-key and account-key rotation, and audited account recovery.
 
 ## License
 

@@ -133,6 +133,13 @@ proxy](/proxy/).
 
 | Area | Checked against |
 | --- | --- |
+| Lexicon validation | upstream record-data fixtures, plus every catalog record root |
+| Lexicon resolution | admission of a published schema graph, and a signed record proof from this server |
+| WebAuthn | a virtual authenticator: real attestation and assertion round trips |
+| Master-key rotation | every sealed value re-encrypted, with an aborting failure case |
+| Managed key rotation | the head re-signed, exports verifying against the new document |
+| Block collection | reachability preserved, idempotence, retention bound |
+| Backups | checksum match, corruption, non-database files |
 | Identifier syntax | upstream `handle`, `did`, `nsid`, `recordkey`, `tid`, `at-uri`, `datetime` fixtures |
 | Data model and DAG-CBOR | upstream `data-model` fixtures: exact bytes and CIDs |
 | Non-canonical CBOR | indefinite lengths, overlong integers, floats, unsorted and duplicate keys, unknown tags, trailing bytes |
@@ -148,6 +155,10 @@ preserves the fixture and asserts rejection.
 
 ## Not implemented
 
-Label emission, an object-store blob backend, shared rate-limit counters, WebAuthn
-passkeys, dynamic Lexicon resolution, and master-key rotation. See [the
+Externally signed PLC recovery forks and directory reconciliation, and an
+end-to-end migration driver. Label *emission* belongs to a labeler rather than a
+PDS; self-labels inside records are validated like any other field. See [the
 roadmap](/roadmap/).
+
+Nothing here has yet been run against an independent client or a real relay,
+which is the honest gap between "passes its own tests" and "interoperates".

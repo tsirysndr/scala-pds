@@ -63,6 +63,17 @@ integer.
 | DPoP nonce window | 3 minutes, current and previous accepted |
 | Identity cache entry | 10 minutes |
 
+## Record schemas
+
+| Limit | Value |
+| --- | --- |
+| Trusted catalog | 108 pinned schemas, checksummed at load |
+| Resolved schema documents | 32 per collection |
+| Resolved schema bytes | 4 MiB total, 1 MiB per document |
+| Schema graph nodes | 10 000, depth 64 |
+| Schema cache | 128 collections, 16 MiB, 1 hour on success, 1 minute on failure |
+| Concurrent resolutions | 16 |
+
 ## Second factors
 
 | Limit | Value |
@@ -71,6 +82,8 @@ integer.
 | TOTP enrollment window | 10 minutes |
 | TOTP failures | 5 within 5 minutes, then `RateLimitExceeded` |
 | Recovery codes | 8, single use, 26 characters |
+| Passkeys per account | 20 |
+| Passkey ceremony | 5 minutes, single use, bound to its browser session |
 
 A TOTP step at or below the last accepted one is refused, so an observed code
 cannot be replayed inside its window.
