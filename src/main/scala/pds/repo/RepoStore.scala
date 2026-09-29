@@ -55,6 +55,25 @@ object RepoStore:
       did, applied.commitCid.toString, applied.root.toString, rev)
     Head(applied.commit, applied.root, rev)
 
+  /** Re-signs the head with `key` at a new revision, unless it already verifies
+    * against it, so that what this server serves matches the key it publishes.
+    * Returns the new revision, and the event the firehose should replay.
+    */
+  def resign(
+      connection: Connection, did: String, key: PrivateKey
+  ): Option[(String, Applied, String)] =
+    val head = requireHead(connection, did)
+    Option.unless(head.commit.verify(key.publicKey)) {
+      val rev = Tid.next()
+      val resigned = Commit.sign(did, head.root, rev, Some(head.commit.cid), key)
+      writeBlocks(connection, did, Map(resigned.cid -> resigned.bytes), rev)
+      Sql.update(connection,
+        "UPDATE repo_roots SET commit_cid = ?, rev = ? WHERE did = ?",
+        resigned.cid.toString, rev, did)
+      (rev, Applied(resigned, resigned.cid, head.root, Some(head.root),
+        Map(resigned.cid -> resigned.bytes), Vector.empty, Map.empty), head.rev)
+    }
+
   def writeBlocks(
       connection: Connection, did: String, blocks: Map[Cid, Array[Byte]], rev: String
   ): Unit =

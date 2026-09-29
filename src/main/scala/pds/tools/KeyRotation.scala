@@ -88,19 +88,11 @@ object KeyRotation:
           "UPDATE account_keys SET rotation_public = ?, rotation_sealed = ? WHERE did = ?",
           key.publicKey.didKey, env.sealing.sealKey(key), did)
       }
-      val revision = signing.map { key =>
-        val head = RepoStore.requireHead(connection, did)
-        val rev = Tid.next()
-        val resigned = Commit.sign(did, head.root, rev, Some(head.commit.cid), key)
-        RepoStore.writeBlocks(connection, did, Map(resigned.cid -> resigned.bytes), rev)
-        Sql.update(connection,
-          "UPDATE repo_roots SET commit_cid = ?, rev = ? WHERE did = ?",
-          resigned.cid.toString, rev, did)
-        Events.commit(connection, did,
-          pds.protocol.Applied(resigned, resigned.cid, head.root, Some(head.root),
-            Map(resigned.cid -> resigned.bytes), Vector.empty, Map.empty),
-          Some(head.rev))
-        rev
+      val revision = signing.flatMap { key =>
+        RepoStore.resign(connection, did, key).map { (rev, applied, previous) =>
+          Events.commit(connection, did, applied, Some(previous))
+          rev
+        }
       }
       Events.identity(connection, did, Some(handle))
       Result(did, handle, signing.map(_.publicKey.didKey), rotation.map(_.publicKey.didKey),
