@@ -6,7 +6,7 @@ import java.nio.file.{Files, Path, Paths}
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import pds.accounts.Email
-import pds.api.{Counters, RateLimit}
+import pds.api.{Counters, Metrics, RateLimit}
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
@@ -98,6 +98,7 @@ object Main extends IOApp:
           s"${applied.length} migration(s) applied" +
           blobs.fold("")(store => s", blobs in ${store.bucket}"))
         limiter = RateLimit(counters, config.rateLimitPerMinute)
+        metrics <- Metrics.create
         _ <- requestCrawl(env).start
         _ <- background(env).start
         _ <- IO.println(s"scala-pds: listening on ${config.host}:${config.port} " +
@@ -107,7 +108,7 @@ object Main extends IOApp:
           .withHost(config.host)
           .withPort(config.port)
           .withIdleTimeout(75.seconds)
-          .withHttpWebSocketApp(builder => PdsApp(env, client, limiter, Some(builder)))
+          .withHttpWebSocketApp(builder => PdsApp(env, client, limiter, Some(builder), metrics))
           .build
           .useForever
           .as(ExitCode.Success)

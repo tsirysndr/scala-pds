@@ -25,7 +25,8 @@ final case class ServerConfig private (
     emailFrom: String,
     blobMaxSize: Long,
     rateLimitPerMinute: Int,
-    firehoseRetentionHours: Int
+    firehoseRetentionHours: Int,
+    accessLog: Boolean
 ):
   val serviceDid: String = s"did:web:$hostname"
   def emailEnabled: Boolean = emailEndpoint.isDefined
@@ -99,7 +100,8 @@ object ServerConfig:
       emailFrom = env.getOrElse("PDS_EMAIL_FROM", s"noreply@$hostname"),
       blobMaxSize = blobMaxSize,
       rateLimitPerMinute = rateLimit,
-      firehoseRetentionHours = retention
+      firehoseRetentionHours = retention,
+      accessLog = flag(env, "PDS_ACCESS_LOG", default = true)
     )
 
   private def flag(env: Map[String, String], name: String, default: Boolean): Boolean =

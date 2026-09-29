@@ -15,7 +15,12 @@ object Firehose:
   private val pollInterval = 500.millis
   private val keepAlive = 30.seconds
 
-  def subscribe(env: Env, request: Request[IO], builder: WebSocketBuilder2[IO]): IO[Response[IO]] =
+  def subscribe(
+      env: Env,
+      request: Request[IO],
+      builder: WebSocketBuilder2[IO],
+      metrics: pds.api.Metrics
+  ): IO[Response[IO]] =
     val requested = request.params.get("cursor").flatMap(_.toLongOption)
     for
       latest <- env.database.read(Events.latest)
@@ -26,8 +31,9 @@ object Firehose:
           IO.pure(latest).flatTap(_ => IO.unit)
         case Some(cursor) => IO.pure(cursor)
       future = requested.exists(_ > latest)
+      _ <- metrics.subscriberOpened
       response <- builder
-        .withOnClose(IO.unit)
+        .withOnClose(metrics.subscriberClosed)
         .build(frames(env, start, future), _.drain)
     yield response
 

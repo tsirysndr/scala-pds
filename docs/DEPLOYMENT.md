@@ -105,10 +105,43 @@ has the schema it expects or does not serve.
 | --- | --- |
 | `/xrpc/_health` | `{"version":"scala-pds 0.1.0-SNAPSHOT"}`, after a successful database round trip |
 | `/_health` | the same version, without touching the database |
+| `/metrics` | Prometheus text format; administrator credentials required |
 
 `/xrpc/_health` returns 500 when the database is unreachable, which is the right
 signal for a load balancer. The container image health-checks it every thirty
 seconds.
+
+`/metrics` needs `PDS_ADMIN_PASSWORD` over HTTP Basic, like the administrative
+API, so it is not public:
+
+```sh
+curl -sS -u "admin:$PDS_ADMIN_PASSWORD" https://pds.example.com/metrics
+```
+
+```
+pds_requests_total{surface="xrpc",status="200"} 1482
+pds_xrpc_method_total{method="com.atproto.repo.createRecord"} 97
+pds_rate_limited_total 3
+pds_firehose_subscribers 2
+pds_accounts 128
+pds_records 41902
+pds_sequence 52118
+pds_uptime_seconds 86400
+```
+
+Counters are per instance and reset on restart; the gauges are read from the
+database at scrape time. Scrape every instance and sum the counters.
+
+## Request logging
+
+Every request produces one structured line on stdout:
+
+```
+level=info msg=request method=POST path="/xrpc/com.atproto.repo.createRecord" status=200 duration_ms=12 client="198.51.100.7"
+```
+
+`client` is the first hop of `X-Forwarded-For` when present, so it is the real
+client rather than the proxy. Set `PDS_ACCESS_LOG=false` to turn it off.
 
 ## Rate limiting
 

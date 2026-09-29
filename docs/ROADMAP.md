@@ -46,6 +46,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 14. **Passkeys** — WebAuthn registration and sign-in, verified end to end
     against a virtual authenticator.
 15. **Shared counters** — optional Redis-backed rate-limit windows.
+16. **Observability** — Prometheus metrics behind administrator credentials and
+    a structured access log.
 
 ## Next
 
@@ -79,7 +81,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 ### Operations
 
 - Checksummed backup and restore tooling, and a documented recovery drill.
-- Metrics and structured logs.
 - A migration driver that runs the whole [account migration](/migration/)
   sequence rather than leaving it to the client.
 

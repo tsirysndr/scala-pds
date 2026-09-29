@@ -6,7 +6,7 @@ import java.nio.file.Files
 import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.circe.*
-import pds.api.RateLimit
+import pds.api.{Metrics, RateLimit}
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
@@ -39,7 +39,8 @@ object TestEnv:
       "PDS_HOSTNAME" -> "pds.example.com",
       "PDS_PUBLIC_URL" -> "https://pds.example.com",
       "PDS_DID_METHOD" -> "web",
-      "PDS_ADMIN_PASSWORD" -> adminPassword
+      "PDS_ADMIN_PASSWORD" -> adminPassword,
+      "PDS_ACCESS_LOG" -> "false"
     ) ++ overrides
     for
       directory <- Resource.eval(IO.blocking(Files.createTempDirectory("pds-harness")))
@@ -58,7 +59,8 @@ object TestEnv:
       limiter <- Resource.eval(RateLimit.create(
         if overrides.contains("PDS_RATE_LIMIT_PER_MINUTE") then config.rateLimitPerMinute
         else 100000))
-    yield Harness(env, PdsApp(env, client, limiter, None))
+      metrics <- Resource.eval(Metrics.create)
+    yield Harness(env, PdsApp(env, client, limiter, None, metrics))
 
   def post(path: String, body: Json): Request[IO] =
     Request[IO](Method.POST, Uri.unsafeFromString(path)).withEntity(body)

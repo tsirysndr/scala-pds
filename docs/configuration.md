@@ -15,6 +15,7 @@ to be set for a development server.
 | `PDS_USER_DOMAIN` | `PDS_HOSTNAME` | the suffix account handles must end with |
 | `PDS_RATE_LIMIT_PER_MINUTE` | `300` | requests per client address per minute |
 | `PDS_FIREHOSE_RETENTION_HOURS` | `72` | how far back `subscribeRepos` can rewind; `0` keeps everything and disables block collection |
+| `PDS_ACCESS_LOG` | `true` | one structured log line per request |
 
 `PDS_PUBLIC_URL` must be a canonical origin: a lowercase host, no path, and no
 default port. `https://pds.example.com` and `https://pds.example.com:8443` are

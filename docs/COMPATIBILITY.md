@@ -117,6 +117,7 @@ proxy](/proxy/).
 | --- | --- |
 | `GET /` | the ASCII banner |
 | `GET /xrpc/_health`, `GET /_health` | liveness, with and without a database round trip |
+| `GET /metrics` | Prometheus metrics, administrator credentials required |
 | `GET /.well-known/did.json` | the service DID document |
 | `GET /.well-known/oauth-authorization-server` | OAuth server metadata |
 | `GET /.well-known/oauth-protected-resource` | OAuth resource metadata |
