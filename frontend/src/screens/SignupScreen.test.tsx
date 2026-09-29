@@ -41,6 +41,20 @@ describe("signup", () => {
     });
   });
 
+  it("shows the server domain beside the field and previews the handle as you type", async () => {
+    stubFetch({ "/account/session": () => [200, session()] });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+
+    expect(screen.getByText(".pds.example.com")).toBeInTheDocument();
+    expect(screen.getByText(/Your handle will be username\.pds\.example\.com/i)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/Username/), "Carol");
+
+    expect(screen.getByText(/Your handle will be carol\.pds\.example\.com/i)).toBeInTheDocument();
+  });
+
   it("rejects short usernames, bad emails and weak passwords before posting", async () => {
     const calls = stubFetch({ "/account/session": () => [200, session()] });
     render(<App client={client()} />);
