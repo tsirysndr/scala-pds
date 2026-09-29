@@ -409,6 +409,46 @@ await check("@atproto/api reads the server description", async () => {
   return described.data.did;
 });
 
+console.log("\ncross-origin");
+
+await check("a browser preflight is answered for the headers a client sends", async () => {
+  const response = await fetch(`${BASE}/xrpc/com.atproto.repo.createRecord`, {
+    method: "OPTIONS",
+    headers: {
+      origin: "https://app.example.com",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "authorization,content-type,dpop",
+    },
+  });
+  const allowed = response.headers.get("access-control-allow-headers")?.toLowerCase() ?? "";
+  for (const name of ["authorization", "content-type", "dpop"]) {
+    if (!allowed.includes(name)) throw new Error(`${name} is not allowed: ${allowed}`);
+  }
+  if (response.headers.get("access-control-allow-origin") !== "*") {
+    throw new Error("the origin is not allowed");
+  }
+  const exposed = response.headers.get("access-control-expose-headers")?.toLowerCase() ?? "";
+  // Without this the browser cannot read the nonce, so DPoP never completes.
+  if (!exposed.includes("dpop-nonce")) throw new Error(`DPoP-Nonce is not exposed: ${exposed}`);
+  return `max-age ${response.headers.get("access-control-max-age")}`;
+});
+
+await check("the identity documents are readable from another origin", async () => {
+  const document = await fetch(`${BASE}/.well-known/did.json`, {
+    headers: { origin: "https://app.example.com" },
+  });
+  if (document.headers.get("access-control-allow-origin") !== "*") {
+    throw new Error("did.json is not readable cross-origin");
+  }
+  const resolved = await fetch(`${BASE}/.well-known/atproto-did`, {
+    headers: { origin: "https://app.example.com" },
+  });
+  if (resolved.headers.get("access-control-allow-origin") !== "*") {
+    throw new Error("atproto-did is not readable cross-origin");
+  }
+  return `did.json ${document.status}, atproto-did ${resolved.status}`;
+});
+
 console.log("\nfirehose");
 
 await check("@atproto/repo verifies the blocks in a #commit frame", async () => {
