@@ -79,6 +79,18 @@ object PdsApp:
             Xrpc.ok(DidDocument.service(env.config.serviceDid, env.config.publicUrl)))(Xrpc.ok)
         }
 
+      case request @ GET -> Root / ".well-known" / "atproto-did" =>
+        // The handle's own domain answers with the DID it belongs to, which is
+        // how another server resolves a handle hosted here without DNS.
+        hostedDid(env, authority(env, request)).map {
+          case Some(did) =>
+            Response[IO](Status.Ok).withEntity(did)
+              .withContentType(`Content-Type`(MediaType.text.plain))
+              .putHeaders(Header.Raw(CIString("Cache-Control"), "no-store"))
+          case None =>
+            XrpcError.notFound("No handle here answers for this domain").response[IO]
+        }
+
       case GET -> Root / ".well-known" / "oauth-authorization-server" =>
         Xrpc.ok(Metadata.authorizationServer(env.config))
 
@@ -154,6 +166,11 @@ object PdsApp:
       .getOrElse(env.config.hostname)
       .takeWhile(_ != ':')
       .toLowerCase
+
+  private def hostedDid(env: Env, handle: String): IO[Option[String]] =
+    env.database.read(connection =>
+      pds.accounts.Accounts.byHandle(connection, handle)
+        .filter(_.status != "deleted").map(_.did))
 
   private def hostedDocument(env: Env, did: String): IO[Option[Json]] =
     env.database.read { connection =>
