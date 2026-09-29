@@ -76,6 +76,11 @@ object Events:
     Sql.first(connection, "SELECT COALESCE(MAX(seq), 0) AS total FROM repo_events")(_.long("total"))
       .getOrElse(0L)
 
+  /** The lowest sequence number still retained, or 0 when there is none. */
+  def oldest(connection: Connection): Long =
+    Sql.first(connection, "SELECT COALESCE(MIN(seq), 0) AS total FROM repo_events")(_.long("total"))
+      .getOrElse(0L)
+
   def since(connection: Connection, cursor: Long, limit: Int): Vector[Event] =
     Sql.query(connection,
       "SELECT seq, kind, did, payload FROM repo_events WHERE seq > ? ORDER BY seq LIMIT ?",
@@ -92,6 +97,14 @@ object Events:
       case Node.Obj(fields) => Node.Obj(fields.updated("seq", Node.Integer(event.seq)))
       case other            => other
     Cbor.encode(header) ++ Cbor.encode(body)
+
+  /** An `#info` message, which carries a notice without ending the stream. */
+  def infoFrame(name: String, message: String): Array[Byte] =
+    Cbor.encode(Node.Obj(Map("op" -> Node.Integer(1L), "t" -> Node.Text("#info")))) ++
+      Cbor.encode(Node.Obj(Map(
+        "name" -> Node.Text(name),
+        "message" -> Node.Text(message)
+      )))
 
   def errorFrame(error: String, message: String): Array[Byte] =
     Cbor.encode(Node.Obj(Map("op" -> Node.Integer(-1L)))) ++

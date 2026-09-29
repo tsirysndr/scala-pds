@@ -206,3 +206,50 @@ class EventsSuite extends munit.CatsEffectSuite:
         assertEquals(beyond, Vector.empty)
     }
   }
+
+  test("a cursor is resolved against the sequence still retained") {
+    // seq 5..12 retained; anything older has been pruned.
+    assertEquals(Firehose.plan(None, 5L, 12L), Firehose.Plan(12L, false, false))
+    assertEquals(Firehose.plan(Some(12L), 5L, 12L), Firehose.Plan(12L, false, false))
+    assertEquals(Firehose.plan(Some(7L), 5L, 12L), Firehose.Plan(7L, false, false))
+    assertEquals(Firehose.plan(Some(4L), 5L, 12L), Firehose.Plan(4L, false, false))
+    assertEquals(Firehose.plan(Some(3L), 5L, 12L), Firehose.Plan(4L, false, true))
+    assertEquals(Firehose.plan(Some(0L), 5L, 12L), Firehose.Plan(4L, false, true))
+    assertEquals(Firehose.plan(Some(13L), 5L, 12L), Firehose.Plan(12L, true, false))
+    assertEquals(Firehose.plan(Some(-1L), 5L, 12L), Firehose.Plan(12L, false, false))
+    // An empty or unpruned sequence never reports skipped events.
+    assertEquals(Firehose.plan(Some(0L), 0L, 0L), Firehose.Plan(0L, false, false))
+    assertEquals(Firehose.plan(Some(0L), 1L, 4L), Firehose.Plan(0L, false, false))
+  }
+
+  test("an outdated cursor is announced with an #info frame") {
+    val info = Events.infoFrame("OutdatedCursor", "some events were skipped")
+    val (header, offset) = Cbor.decodePrefix(info, 0).fold(fail(_), identity)
+    assertEquals(header("op").flatMap(_.asLong), Some(1L))
+    assertEquals(header("t").flatMap(_.asString), Some("#info"))
+    val (body, end) = Cbor.decodePrefix(info, offset).fold(fail(_), identity)
+    assertEquals(body("name").flatMap(_.asString), Some("OutdatedCursor"))
+    assertEquals(body("message").flatMap(_.asString), Some("some events were skipped"))
+    assertEquals(end, info.length)
+  }
+
+  test("the oldest retained sequence number follows pruning") {
+    harness().use { server =>
+      for
+        _ <- register(server)
+        before <- server.env.database.read(connection =>
+          (Events.oldest(connection), Events.latest(connection)))
+        _ <- server.env.database.transact(connection =>
+          pds.storage.Sql.update(connection, "DELETE FROM repo_events WHERE seq <= ?", 2L))
+        after <- server.env.database.read(connection =>
+          (Events.oldest(connection), Events.latest(connection)))
+        emptied <- server.env.database.transact { connection =>
+          pds.storage.Sql.update(connection, "DELETE FROM repo_events")
+          Events.oldest(connection)
+        }
+      yield
+        assertEquals(before, (1L, 3L))
+        assertEquals(after, (3L, 3L))
+        assertEquals(emptied, 0L)
+    }
+  }
