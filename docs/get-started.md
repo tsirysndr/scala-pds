@@ -30,7 +30,7 @@ scala-pds: listening on 127.0.0.1:3000 as http://localhost:3000
 Confirm it answers:
 
 ```sh
-curl http://127.0.0.1:3000/xrpc/_health
+curl http://127.0.0.1:3000/xrpc/_health   # {"version":"scala-pds 0.1.0-SNAPSHOT"}
 curl http://127.0.0.1:3000/xrpc/com.atproto.server.describeServer
 ```
 

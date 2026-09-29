@@ -34,7 +34,7 @@ object PdsApp:
         |Most API routes are under /xrpc/
         |""".stripMargin
 
-  val version = "0.1.0-SNAPSHOT"
+  val version = "scala-pds 0.1.0-SNAPSHOT"
 
   private val proxied = Set("app.bsky.", "chat.bsky.", "tools.ozone.")
 

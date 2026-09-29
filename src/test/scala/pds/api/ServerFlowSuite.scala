@@ -267,7 +267,8 @@ class ServerFlowSuite extends munit.CatsEffectSuite:
         assertEquals(wrongVerb._1, Status.BadRequest)
         assertEquals(missing._1, Status.NotFound)
         assertEquals(missing._2.hcursor.get[String]("error"), Right("NotFound"))
-        assertEquals(health._2.hcursor.get[String]("version"), Right(pds.PdsApp.version))
+        assertEquals(health._2.hcursor.get[String]("version"),
+          Right("scala-pds 0.1.0-SNAPSHOT"))
     }
   }
 

@@ -103,8 +103,8 @@ has the schema it expects or does not serve.
 
 | Path | Meaning |
 | --- | --- |
-| `/xrpc/_health` | the version, after a successful database round trip |
-| `/_health` | the version, without touching the database |
+| `/xrpc/_health` | `{"version":"scala-pds 0.1.0-SNAPSHOT"}`, after a successful database round trip |
+| `/_health` | the same version, without touching the database |
 
 `/xrpc/_health` returns 500 when the database is unreachable, which is the right
 signal for a load balancer. The container image health-checks it every thirty
