@@ -159,6 +159,23 @@ object PdsApp:
           s"""path="${request.uri.path.renderString}" status=${response.status.code} """ +
           s"""duration_ms=$millis client="$client"""")
 
+  private val defaultAllowedHeaders =
+    "Authorization, Content-Type, DPoP, atproto-accept-labelers, atproto-proxy"
+  private val headerName = "[!#$%&'*+.^_`|~0-9A-Za-z-]+".r
+
+  /** A wildcard origin cannot carry cookies, so the header names a preflight
+    * asks for are reflected rather than held to a fixed list that would refuse
+    * a client sending one this server did not anticipate. Only RFC 7230 tokens
+    * are echoed, so a reflected value cannot introduce a second header.
+    */
+  private def allowedHeaders(request: Request[IO]): String =
+    request.headers.get(CIString("Access-Control-Request-Headers")).map(_.head.value) match
+      case Some(value) if value.length <= 4096 =>
+        val names = value.split(",").map(_.trim).filter(_.nonEmpty).toVector
+        if names.nonEmpty && names.forall(headerName.matches) then names.mkString(", ")
+        else defaultAllowedHeaders
+      case _ => defaultAllowedHeaders
+
   /** The request's host, lowercased and without its port. */
   private def authority(env: Env, request: Request[IO]): String =
     request.headers.get(CIString("Host")).map(_.head.value)
@@ -187,16 +204,27 @@ object PdsApp:
     val path = request.uri.path.renderString
     val isXrpc = path.startsWith("/xrpc/")
     val isOauth = path.startsWith("/oauth/") || path.startsWith("/.well-known/oauth")
+    // Identity documents are public and are read cross-origin by browser
+    // clients resolving a handle or DID hosted here. The account interface is
+    // deliberately absent: it authenticates with cookies, so it stays same-origin.
+    val isIdentity = path == "/.well-known/did.json" || path == "/.well-known/atproto-did"
     val withCors =
-      if isXrpc || isOauth then
-        response.putHeaders(
+      if !(isXrpc || isOauth || isIdentity) then response
+      else
+        val open = response.putHeaders(
           Header.Raw(CIString("Access-Control-Allow-Origin"), "*"),
           Header.Raw(CIString("Access-Control-Allow-Methods"), "GET, HEAD, POST, OPTIONS"),
-          Header.Raw(CIString("Access-Control-Allow-Headers"),
-            "Authorization, Content-Type, DPoP, atproto-accept-labelers, atproto-proxy"),
+          Header.Raw(CIString("Access-Control-Allow-Headers"), allowedHeaders(request)),
           Header.Raw(CIString("Access-Control-Expose-Headers"),
             "DPoP-Nonce, WWW-Authenticate, Retry-After, Atproto-Repo-Rev, Atproto-Content-Labelers"))
-      else response
+        if request.method != Method.OPTIONS then open
+        else
+          open.putHeaders(
+            Header.Raw(CIString("Access-Control-Max-Age"), "600"),
+            // The answer depends on what the preflight asked, so a shared cache
+            // must not reuse it for a different question.
+            Header.Raw(CIString("Vary"),
+              "Access-Control-Request-Method, Access-Control-Request-Headers"))
     val withNonce =
       if isOauth || (isXrpc && Dpop.required(request)) then
         withCors.putHeaders(
