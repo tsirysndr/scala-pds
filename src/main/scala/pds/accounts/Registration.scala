@@ -9,6 +9,7 @@ import pds.firehose.Events
 import pds.identity.{DidDocument, Plc, PlcDirectory}
 import pds.protocol.Syntax
 import pds.repo.RepoStore
+import pds.security.ServiceAuth
 import pds.storage.Sql
 
 final case class Registration(
@@ -18,7 +19,8 @@ final case class Registration(
     inviteCode: Option[String],
     did: Option[String],
     recoveryKey: Option[String],
-    verificationCode: Option[String]
+    verificationCode: Option[String],
+    serviceToken: Option[String] = None
 )
 
 object Register:
@@ -99,7 +101,8 @@ object Register:
       recovery: Option[PublicKey]
   ): IO[Identity] =
     request.did match
-      case Some(existing) => adopt(env, existing).as(Identity(existing, None))
+      case Some(existing) =>
+        adopt(env, existing, request.serviceToken).as(Identity(existing, None))
       case None if env.config.didMethod == "web" =>
         // AT Protocol allows only hostname did:web, with no port or path, so
         // the account's DID is its own handle's domain.
@@ -112,14 +115,25 @@ object Register:
         PlcDirectory(env.net, env.config.plcDirectory).submit(did, genesis)
           .as(Identity(did, Some(genesis)))
 
-  private def adopt(env: Env, did: String): IO[Unit] =
+  /** An account being migrated here still has a DID document naming its old
+    * host — that is the last step of a migration, not the first. So the DID is
+    * adopted either because its document already points here, or because the
+    * old host vouched for the move with a service token signed by the account.
+    */
+  private def adopt(env: Env, did: String, serviceToken: Option[String]): IO[Unit] =
     for
       _ <- IO.raiseUnless(Syntax.isDid(did))(XrpcError.invalidRequest("Invalid DID"))
       document <- env.resolver.resolveDid(did)
       resolved <- IO.fromOption(document)(
         XrpcError.invalidRequest("Supplied DID could not be resolved"))
-      _ <- IO.raiseUnless(resolved.pdsEndpoint.contains(env.config.publicUrl))(
-        XrpcError.invalidRequest("Supplied DID does not point at this server"))
+      vouched <- serviceToken match
+        case None => IO.pure(false)
+        case Some(token) =>
+          ServiceAuth.verify(env, token, "com.atproto.server.createAccount")
+            .map(_ == did).handleError(_ => false)
+      _ <- IO.raiseUnless(vouched || resolved.pdsEndpoint.contains(env.config.publicUrl))(
+        XrpcError.invalidRequest(
+          "Supplied DID does not point at this server, and no service token authorizes it"))
     yield ()
 
   private def persist(

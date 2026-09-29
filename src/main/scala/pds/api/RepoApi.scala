@@ -423,6 +423,10 @@ object RepoApi:
         }
       }
       parsed <- IO.fromEither(parsed.left.map(XrpcError.invalidRequest))
+      // A migrated account's DID still names its old host and old signing key,
+      // so an archive signed by the published key is accepted as well as one
+      // signed by the key reserved here.
+      published <- env.resolver.resolveDid(session.did).map(_.flatMap(_.signingKey))
       now <- env.now
       _ <- env.database.transact { connection =>
         val account = Accounts.require(connection, session.did)
@@ -435,7 +439,9 @@ object RepoApi:
         if commit.did != account.did then
           throw XrpcError.invalidRequest("The archive belongs to another account")
         val key = RepoStore.signingKey(connection, account.did, env.sealing)
-        Repository.verify(commit, key.publicKey, blocks.get)
+        val signer = (key.publicKey +: published.toVector).find(commit.verify)
+          .getOrElse(throw XrpcError.invalidRequest("Commit signature does not verify"))
+        Repository.verify(commit, signer, blocks.get)
           .fold(message => throw XrpcError.invalidRequest(message), identity)
         RepoStore.writeBlocks(connection, account.did, blocks, commit.rev)
         Sql.update(connection,

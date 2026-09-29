@@ -237,3 +237,26 @@ class MigrationSuite extends munit.CatsEffectSuite:
         assertEquals(malformed._1, Status.BadRequest)
     }
   }
+
+  test("an account is only valid once its document names this server and key") {
+    for
+      hosted <- selfHosted().use { server =>
+        for
+          auth <- register(server, "alice")
+          (access, _) = auth
+          status <- server.json(authorized(
+            get("/xrpc/com.atproto.server.checkAccountStatus"), access))
+        yield status._2.hcursor.get[Boolean]("validDid")
+      }
+      unresolvable <- harness().use { server =>
+        for
+          auth <- register(server, "alice")
+          (access, _) = auth
+          status <- server.json(authorized(
+            get("/xrpc/com.atproto.server.checkAccountStatus"), access))
+        yield status._2.hcursor.get[Boolean]("validDid")
+      }
+    yield
+      assertEquals(hosted, Right(true))
+      assertEquals(unresolvable, Right(false))
+  }

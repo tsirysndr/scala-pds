@@ -10,6 +10,7 @@ import pds.firehose.Events
 import pds.identity.DidDocument
 import pds.protocol.Syntax
 import pds.repo.RepoStore
+import pds.security.ServiceAuth
 import pds.storage.Sql
 
 object ServerApi:
@@ -70,7 +71,8 @@ object ServerApi:
         inviteCode = Xrpc.field(body, "inviteCode"),
         did = Xrpc.field(body, "did"),
         recoveryKey = Xrpc.field(body, "recoveryKey"),
-        verificationCode = Xrpc.field(body, "verificationCode")
+        verificationCode = Xrpc.field(body, "verificationCode"),
+        serviceToken = ServiceAuth.bearer(request)
       ))
       response <- Xrpc.ok(Json.obj(
         "accessJwt" -> Json.fromString(created.tokens.accessJwt),
@@ -331,6 +333,12 @@ object ServerApi:
         if account.status == "taken_down" then
           throw XrpcError.named(Status.Forbidden, "AccountTakedown", "Account has been suspended")
         Accounts.activate(connection, account.did)
+        // Activation is the moment this server becomes the account's home, so an
+        // imported head signed elsewhere is re-signed with the key published here.
+        val key = RepoStore.signingKey(connection, account.did, env.sealing)
+        RepoStore.resign(connection, account.did, key).foreach { (_, applied, previous) =>
+          Events.commit(connection, account.did, applied, Some(previous))
+        }
         Events.account(connection, account.did, active = true, None)
       }
       response <- Xrpc.empty
@@ -340,12 +348,19 @@ object ServerApi:
     for
       session <- Xrpc.session(env, request)
       _ <- Xrpc.requirePrivileged(session)
+      // A migration is only finished when the account's document names this
+      // server and the key it serves, so the answer is resolved, not assumed.
+      document <- env.resolver.resolveDid(session.did)
       status <- env.database.read { connection =>
         val account = Accounts.require(connection, session.did)
         val head = RepoStore.head(connection, account.did)
+        val local = RepoStore.signingKey(connection, account.did, env.sealing).publicKey
+        val validDid = document.exists(resolved =>
+          resolved.pdsEndpoint.contains(env.config.publicUrl) &&
+            resolved.signingKey.map(_.didKey).contains(local.didKey))
         Json.obj(
           "activated" -> Json.fromBoolean(account.active),
-          "validDid" -> Json.fromBoolean(true),
+          "validDid" -> Json.fromBoolean(validDid),
           "repoCommit" -> head.map(value => Json.fromString(value.commit.cid.toString))
             .getOrElse(Json.Null),
           "repoRev" -> head.map(value => Json.fromString(value.rev)).getOrElse(Json.Null),

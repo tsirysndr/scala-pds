@@ -1,6 +1,6 @@
 package pds
 
-import cats.effect.{IO, Resource}
+import cats.effect.{IO, Ref, Resource}
 import io.circe.Json
 import java.nio.file.Files
 import org.http4s.*
@@ -62,6 +62,19 @@ object TestEnv:
         else 100000))
       metrics <- Resource.eval(Metrics.create)
     yield Harness(env, PdsApp(env, client, limiter, None, metrics), databaseConfig)
+
+  /** A harness whose outbound client routes back to itself, so the `did:web`
+    * document of an account it hosts resolves as it would in a deployment.
+    */
+  def selfHosted(overrides: Map[String, String] = Map.empty): Resource[IO, Harness] =
+    for
+      itself <- Resource.eval(Ref.of[IO, Option[HttpApp[IO]]](None))
+      client = Client.fromHttpApp(HttpApp[IO] { request =>
+        itself.get.flatMap(_.fold(IO.pure(Response[IO](Status.NotFound)))(_.run(request)))
+      })
+      server <- harness(overrides, client)
+      _ <- Resource.eval(itself.set(Some(server.app)))
+    yield server
 
   def post(path: String, body: Json): Request[IO] =
     Request[IO](Method.POST, Uri.unsafeFromString(path)).withEntity(body)
