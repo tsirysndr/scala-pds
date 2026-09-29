@@ -6,7 +6,7 @@ import java.sql.Connection
 import pds.{Env, XrpcError}
 import pds.crypto.{Curve, Passwords, PrivateKey, PublicKey}
 import pds.firehose.Events
-import pds.identity.{DidDocument, Plc, PlcDirectory}
+import pds.identity.{DidDocument, HandleAuthority, Plc, PlcDirectory}
 import pds.protocol.Syntax
 import pds.repo.RepoStore
 import pds.security.ServiceAuth
@@ -85,7 +85,7 @@ object Register:
     env.database.read(connection => Accounts.handleAvailable(connection, handle)).flatMap { free =>
       IO.raiseUnless(free)(XrpcError.named(org.http4s.Status.BadRequest, "HandleNotAvailable",
         "Handle is already taken"))
-    }
+    } *> HandleAuthority.ensureAvailable(env, handle)
 
   private final case class Identity(did: String, operation: Option[Plc.Operation])
 

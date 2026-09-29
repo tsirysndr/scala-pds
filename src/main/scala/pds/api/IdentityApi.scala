@@ -7,7 +7,7 @@ import pds.{Env, XrpcError}
 import pds.accounts.{Accounts, Email}
 import pds.crypto.{Curve, PrivateKey, PublicKey}
 import pds.firehose.Events
-import pds.identity.{DidDocument, Plc, PlcDirectory}
+import pds.identity.{DidDocument, HandleAuthority, Plc, PlcDirectory}
 import pds.protocol.Syntax
 import pds.repo.RepoStore
 import pds.storage.Sql
@@ -95,7 +95,9 @@ object IdentityApi:
       _ <- IO.raiseUnless(Syntax.isHandle(handle))(
         XrpcError.named(Status.BadRequest, "InvalidHandle", "Handle is not a valid domain name"))
       hosted = handle.endsWith(s".${env.config.userDomain}")
-      _ <- if hosted then IO.unit else verifyExternal(env, handle, session.did)
+      _ <-
+        if hosted then HandleAuthority.ensureAvailable(env, handle, Some(session.did))
+        else verifyExternal(env, handle, session.did)
       now <- env.now
       _ <- env.database.transact { connection =>
         val account = Accounts.requireActive(connection, session.did)

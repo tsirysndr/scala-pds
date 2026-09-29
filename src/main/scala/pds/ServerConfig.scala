@@ -17,6 +17,7 @@ final case class ServerConfig private (
     appviewDid: Option[String],
     modServiceDid: Option[String],
     modServiceUrl: Option[String],
+    handleAuthority: Option[String],
     relayUrls: Vector[String],
     adminPassword: Option[String],
     contactEmail: Option[String],
@@ -60,6 +61,7 @@ object ServerConfig:
       appviewDid = env.get("PDS_APPVIEW_DID").filter(_.startsWith("did:"))
       modServiceDid = env.get("PDS_MOD_SERVICE_DID").filter(_.startsWith("did:"))
       modServiceUrl <- optionalOrigin(env, "PDS_MOD_SERVICE_URL")
+      handleAuthority <- optionalOrigin(env, "PDS_HANDLE_AUTHORITY")
       relays <- env.getOrElse("PDS_RELAY_URLS", "").split(",").toVector
         .map(_.trim).filter(_.nonEmpty)
         .foldLeft[Either[String, Vector[String]]](Right(Vector.empty)) { (acc, value) =>
@@ -96,6 +98,7 @@ object ServerConfig:
       appviewDid = appviewDid,
       modServiceDid = modServiceDid,
       modServiceUrl = modServiceUrl,
+      handleAuthority = handleAuthority,
       relayUrls = relays,
       adminPassword = adminPassword,
       contactEmail = env.get("PDS_CONTACT_EMAIL").filter(_.contains('@')),
