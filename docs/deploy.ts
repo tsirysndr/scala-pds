@@ -6,7 +6,7 @@
 // to be given explicitly, because detection finds nothing to build in a
 // directory that holds only generated files.
 
-const APP = Deno.env.get("DEPLOY_APP") ?? "scala-pds-docs";
+const APP = Deno.env.get("DEPLOY_APP") ?? "scala-pds";
 const ORG = Deno.env.get("DEPLOY_ORG") ?? "tsirysndr";
 const REGION = Deno.env.get("DEPLOY_REGION") ?? "us";
 const SITE_URL = Deno.env.get("SITE_URL") ?? `https://${APP}.${ORG}.deno.net/`;

@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="scala-pds">
   <rect width="64" height="64" rx="14" fill="#6d28d9"/>
-  <path d="M18 15 L37.5 49" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
-  <path d="M46 49 L30 21.5" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+  <g fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round">
+    <path d="M27.5 24.5 L18.5 40"/>
+    <path d="M36.5 24.5 L45.5 37"/>
+    <circle cx="32" cy="16.5" r="7"/>
+  </g>
+  <circle cx="17" cy="47" r="6" fill="#ffffff"/>
+  <circle cx="47" cy="43" r="6" fill="#ffffff"/>
 </svg>
