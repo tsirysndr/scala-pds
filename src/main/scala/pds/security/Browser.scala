@@ -73,6 +73,7 @@ object Browser:
     else
       identified.deepMerge(Json.obj(
         "appPasswords" -> Json.arr(AppPasswords.list(connection, session.did.get)*),
+        "passkeys" -> Json.arr(Passkeys.list(connection, session.did.get)*),
         "recoveryCodes" -> Json.fromInt(Totp.remaining(connection, session.did.get)),
         "oauthSessions" -> Json.arr(oauthSessions(connection, session.did.get)*)
       ))
@@ -176,6 +177,28 @@ object Browser:
               throw XrpcError.authRequired("Invalid identifier or password")
             primary(env, connection, session, account.get, "password", now)
 
+          case "login/passkey/begin" =>
+            if session.did.isDefined then
+              throw XrpcError.named(org.http4s.Status.BadRequest, "AlreadySignedIn",
+                "Sign out before choosing another account")
+            val identifier = pds.api.Xrpc.requireField(body, "identifier")
+            val account = Accounts.byIdentifier(connection, identifier)
+              .filter(_.active)
+              .getOrElse(throw XrpcError.authRequired("Account is unavailable"))
+            val ceremony = Passkeys.beginAuthentication(env, connection, account.did, value, now)
+            output(env, connection, value, now, Json.obj(
+              "id" -> Json.fromString(ceremony.id), "options" -> ceremony.options))
+
+          case "login/passkey/finish" =>
+            if session.did.isDefined then
+              throw XrpcError.named(org.http4s.Status.BadRequest, "AlreadySignedIn",
+                "Sign out before choosing another account")
+            val did = Passkeys.finishAuthentication(env, connection,
+              pds.api.Xrpc.requireField(body, "id"), value,
+              pds.api.Xrpc.requireField(body, "response"), now)
+            primary(env, connection, session, Accounts.requireActive(connection, did),
+              "passkey", now)
+
           case "login/factor" =>
             if session.did.isEmpty || session.authenticatedAt.isDefined then throw invalid
             val account = Accounts.require(connection, session.did.get)
@@ -223,6 +246,15 @@ object Browser:
         Sql.update(connection,
           "UPDATE oauth_tokens SET revoked = true WHERE id = ? AND did = ?", id, did)
         Json.obj("revoked" -> Json.True)
+      case "passkeys/begin" =>
+        val ceremony = Passkeys.beginRegistration(env, connection, did, token,
+          pds.api.Xrpc.requireField(body, "name"), now)
+        Json.obj("id" -> Json.fromString(ceremony.id), "options" -> ceremony.options)
+      case "passkeys/finish" =>
+        Passkeys.finishRegistration(env, connection, pds.api.Xrpc.requireField(body, "id"),
+          token, pds.api.Xrpc.requireField(body, "response"), now)
+      case "passkeys/remove" =>
+        Passkeys.remove(connection, did, pds.api.Xrpc.requireField(body, "id"))
       case "totp/begin" =>
         val account = Accounts.require(connection, did)
         val enrollment = Totp.begin(env, connection, did, account.handle, now)

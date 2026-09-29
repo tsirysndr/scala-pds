@@ -9,7 +9,8 @@ import scala.io.Source
   * edited migration fails loudly instead of diverging between deployments.
   */
 object Migrations:
-  private val files = Vector("001-baseline.sql", "002-blob-backends.sql")
+  private val files = Vector(
+    "001-baseline.sql", "002-blob-backends.sql", "003-passkeys.sql")
 
   def run(database: Database): IO[Vector[Int]] =
     database.transact { connection =>

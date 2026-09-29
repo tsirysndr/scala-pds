@@ -21,6 +21,13 @@ lazy val root = (project in file("."))
       "org.postgresql" % "postgresql" % "42.7.5",
       "com.zaxxer" % "HikariCP" % "6.2.1",
       "org.bouncycastle" % "bcprov-jdk18on" % "1.79",
+      "com.yubico" % "webauthn-server-core" % "2.9.0",
+      // Yubico declares open ranges; pin them so builds stay reproducible.
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.2",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % "2.18.2",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % "2.18.2",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.2",
+      "com.google.guava" % "guava" % "33.4.0-jre",
       "dnsjava" % "dnsjava" % "3.6.3",
       "org.slf4j" % "slf4j-simple" % "2.0.17",
       "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test

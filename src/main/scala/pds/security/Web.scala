@@ -116,5 +116,5 @@ object Web:
     "email-enabled" -> Json.fromBoolean(env.config.emailEnabled),
     "invite-required" -> Json.fromBoolean(env.config.inviteRequired),
     "user-domain" -> Json.fromString(env.config.userDomain),
-    "passkeys-available" -> Json.False
+    "passkeys-available" -> Json.fromBoolean(Passkeys.available(env))
   )
