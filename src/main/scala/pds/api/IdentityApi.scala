@@ -225,8 +225,11 @@ object IdentityApi:
       _ <- PlcDirectory(env.net, env.config.plcDirectory).submit(session.did, operation)
       _ <- env.resolver.invalidate(session.did)
       _ <- env.database.transact { connection =>
-        Sql.update(connection, "UPDATE account_keys SET plc_confirmed = true WHERE did = ?",
-          session.did)
+        // A recovery operation signed outside this server can hand the identity
+        // to another key, so confirmation follows what was actually published.
+        val local = RepoStore.signingKey(connection, session.did, env.sealing).publicKey.didKey
+        Sql.update(connection, "UPDATE account_keys SET plc_confirmed = ? WHERE did = ?",
+          operation.verificationMethods.get("atproto").contains(local), session.did)
         Events.identity(connection, session.did,
           operation.alsoKnownAs.headOption.map(_.stripPrefix("at://")))
       }
