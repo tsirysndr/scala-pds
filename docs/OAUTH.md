@@ -119,6 +119,16 @@ Nonces are derived from the master key and a three-minute window; the current an
 previous windows are both accepted. `DPoP-Nonce` is returned on OAuth responses
 *and on rejections*, so a client always learns the value it needs.
 
+RFC 9449 splits the rejection by surface, and a conforming client only retries
+the handshake when it sees the right one. An authorization-server endpoint —
+`/oauth/par`, `/oauth/token`, `/oauth/revoke` — answers `400` with a JSON body
+carrying `error` and `error_description`. A resource endpoint answers `401` with
+a `WWW-Authenticate: DPoP` challenge naming the error.
+
+Unlike repository commits and PLC operations, a DPoP proof's signature is not
+required to be low-S: RFC 7515 does not ask for it, and conforming signers such
+as WebCrypto emit a high-S value about half the time.
+
 ## Using an access token
 
 ```

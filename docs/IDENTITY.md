@@ -32,10 +32,12 @@ list, so the account owner keeps a key that outranks the server's.
 
 `PDS_DID_METHOD=web`, and the default when the hostname is `localhost` or
 `127.0.0.1`, because a loopback server cannot publish to a public directory.
-Account DIDs take the standard path form and are served from this host:
+AT Protocol allows only the hostname form of `did:web` — no port and no path —
+so an account's DID is its own handle's domain, and its document is served at
+that domain:
 
 ```
-did:web:pds.example.com:u:alice  →  https://pds.example.com/u/alice/did.json
+did:web:alice.pds.example.com  →  https://alice.pds.example.com/.well-known/did.json
 ```
 
 The document is rendered from live account state, so a handle change is visible
@@ -43,8 +45,11 @@ immediately with no directory round trip.
 
 ## The service document
 
-The server's own DID is `did:web:<PDS_HOSTNAME>`, served at
-`/.well-known/did.json`. It names only the PDS service endpoint; it holds no
+The server's own DID is `did:web:<PDS_HOSTNAME>`. Because every `did:web`
+document lives at `/.well-known/did.json`, one route answers for all of them and
+picks the document by the request's `Host` header: a host that names a hosted
+account gets that account's document, anything else gets the service document.
+The service document names only the PDS service endpoint; it holds no
 verification method, because the server signs inter-service tokens with each
 account's repository key rather than a service key.
 

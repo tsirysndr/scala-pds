@@ -56,7 +56,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     the directory, with the head re-signed so exports keep verifying.
 20. **Reference verification** — the atproto TypeScript packages check the
     server's repositories, proofs, records and firehose frames on every CI run,
-    and the official client library drives it end to end.
+    the official client library drives it end to end, and the reference OAuth
+    client completes the authorization flow against it.
 
 ## Next
 
@@ -65,7 +66,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 - Point the Bluesky application itself at a deployed server and record the
   result; the official client *library* already drives it in CI.
 - Have a real relay consume the firehose and confirm it accepts the commits.
-- Check the OAuth server with a reference client implementation.
 
 ### Records and Lexicons
 
@@ -95,6 +95,6 @@ and tested.
 
 The first four are demonstrated by the test suite, and the repository, proof,
 record and firehose formats are additionally verified by the reference
-TypeScript packages while the official client library drives the server end to
-end — see [interoperability](/interop/). A real relay and the Bluesky
+TypeScript packages while the official client library and the reference OAuth
+client drive the server end to end — see [interoperability](/interop/). A real relay and the Bluesky
 application itself remain the honest gap.

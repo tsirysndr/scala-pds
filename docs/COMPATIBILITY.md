@@ -118,10 +118,9 @@ proxy](/proxy/).
 | `GET /` | the ASCII banner |
 | `GET /xrpc/_health`, `GET /_health` | liveness, with and without a database round trip |
 | `GET /metrics` | Prometheus metrics, administrator credentials required |
-| `GET /.well-known/did.json` | the service DID document |
+| `GET /.well-known/did.json` | a `did:web` document, chosen by the request `Host` |
 | `GET /.well-known/oauth-authorization-server` | OAuth server metadata |
 | `GET /.well-known/oauth-protected-resource` | OAuth resource metadata |
-| `GET /u/<name>/did.json` | hosted `did:web` account documents |
 | `POST /oauth/par` | pushed authorization requests |
 | `GET /oauth/authorize` | starts the browser flow |
 | `GET /oauth/flow/<id>`, `/state`; `POST /attach`, `/decide` | the consent flow |
