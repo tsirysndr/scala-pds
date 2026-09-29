@@ -15,6 +15,7 @@ final case class ServerConfig private (
     didMethod: String,
     appviewUrl: Option[String],
     appviewDid: Option[String],
+    modServiceDid: Option[String],
     relayUrls: Vector[String],
     adminPassword: Option[String],
     contactEmail: Option[String],
@@ -56,6 +57,7 @@ object ServerConfig:
         .toRight("PDS_PLC_DIRECTORY must be an http(s) URL")
       appviewUrl <- optionalOrigin(env, "PDS_APPVIEW_URL")
       appviewDid = env.get("PDS_APPVIEW_DID").filter(_.startsWith("did:"))
+      modServiceDid = env.get("PDS_MOD_SERVICE_DID").filter(_.startsWith("did:"))
       relays <- env.getOrElse("PDS_RELAY_URLS", "").split(",").toVector
         .map(_.trim).filter(_.nonEmpty)
         .foldLeft[Either[String, Vector[String]]](Right(Vector.empty)) { (acc, value) =>
@@ -90,6 +92,7 @@ object ServerConfig:
       didMethod = didMethod,
       appviewUrl = appviewUrl,
       appviewDid = appviewDid,
+      modServiceDid = modServiceDid,
       relayUrls = relays,
       adminPassword = adminPassword,
       contactEmail = env.get("PDS_CONTACT_EMAIL").filter(_.contains('@')),

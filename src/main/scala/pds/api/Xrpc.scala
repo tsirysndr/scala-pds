@@ -69,7 +69,23 @@ object Xrpc:
     }
     (expected, supplied) match
       case (Some(reference), Some(value)) if Hash.constantTimeEquals(reference, value) => IO.unit
-      case _ => IO.raiseError(XrpcError.authRequired("Administrator credentials are required"))
+      case _ => moderation(env, request)
+
+  /** A configured moderation service — Ozone, say — acts with a service token
+    * scoped to the method it calls instead of the administrator password, so
+    * decisions taken there reach this server without sharing that password.
+    */
+  private def moderation(env: Env, request: Request[IO]): IO[Unit] =
+    val refused = XrpcError.authRequired("Administrator credentials are required")
+    val called = request.uri.path.segments.map(_.decoded()).toVector match
+      case Vector("xrpc", method) if pds.protocol.Syntax.isNsid(method) => Some(method)
+      case _                                                           => None
+    (env.config.modServiceDid, pds.security.ServiceAuth.bearer(request), called) match
+      case (Some(authority), Some(token), Some(method)) =>
+        pds.security.ServiceAuth.verify(env, token, method)
+          .flatMap(issuer => IO.raiseUnless(issuer == authority)(refused))
+          .adaptError { case _ => refused }
+      case _ => IO.raiseError(refused)
 
   def body(request: Request[IO]): IO[Json] =
     request.body.take(maxBodyBytes + 1).compile.to(Array).flatMap { bytes =>
