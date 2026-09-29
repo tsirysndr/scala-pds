@@ -7,7 +7,7 @@ import org.http4s.circe.*
 import org.http4s.headers.`Content-Type`
 import org.typelevel.ci.CIString
 import pds.TestEnv.*
-import pds.protocol.{Car, Cbor, Cid, Commit}
+import pds.protocol.{Car, Cbor, Cid, Commit, Tid}
 import pds.storage.Sql
 
 class MigrationSuite extends munit.CatsEffectSuite:
@@ -29,11 +29,14 @@ class MigrationSuite extends munit.CatsEffectSuite:
         body.hcursor.get[String]("did").toOption.get)
     }
 
+  /** app.bsky.feed.post declares a TID record key, so generate real ones. */
+  private def key(index: Int): String = Tid.encode(1780000000000000L + index, 0)
+
   private def write(server: Harness, access: String, did: String, index: Int) =
     server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
       "repo" -> Json.fromString(did),
       "collection" -> Json.fromString("app.bsky.feed.post"),
-      "rkey" -> Json.fromString(f"3jqfcqzm3f$index%04d"),
+      "rkey" -> Json.fromString(key(index)),
       "record" -> post0(s"post $index"))), access))
 
   private def exportCar(server: Harness, did: String): IO[Array[Byte]] =

@@ -96,6 +96,96 @@ class RepoFlowSuite extends munit.CatsEffectSuite:
     }
   }
 
+  test("records are validated against their Lexicon schema") {
+    harness().use { server =>
+      for
+        auth <- signedIn(server)
+        (access, did) = auth
+        valid <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.feed.post"),
+          "record" -> post0("hello"))), access))
+        // text must be a string, and createdAt a datetime.
+        wrongType <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.feed.post"),
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("app.bsky.feed.post"),
+            "text" -> Json.fromInt(3),
+            "createdAt" -> Json.fromString("2026-01-01T00:00:00.000Z")))), access))
+        badFormat <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.feed.post"),
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("app.bsky.feed.post"),
+            "text" -> Json.fromString("hello"),
+            "createdAt" -> Json.fromString("yesterday")))), access))
+        missing <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.feed.post"),
+          "record" -> Json.obj("$type" -> Json.fromString("app.bsky.feed.post")))), access))
+        // app.bsky.actor.profile declares a literal record key.
+        wrongKey <- server.json(authorized(post("/xrpc/com.atproto.repo.putRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.actor.profile"),
+          "rkey" -> Json.fromString("3jqfcqzm3fo2j"),
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("app.bsky.actor.profile")))), access))
+        rightKey <- server.json(authorized(post("/xrpc/com.atproto.repo.putRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.actor.profile"),
+          "rkey" -> Json.fromString("self"),
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("app.bsky.actor.profile")))), access))
+      yield
+        assertEquals(valid._1, Status.Ok)
+        assertEquals(valid._2.hcursor.get[String]("validationStatus"), Right("valid"))
+        assertEquals(wrongType._1, Status.BadRequest)
+        assertEquals(wrongType._2.hcursor.get[String]("error"), Right("InvalidRecord"))
+        assert(wrongType._2.hcursor.get[String]("message").toOption.exists(_.contains("$.text")),
+          wrongType._2.noSpaces)
+        assertEquals(badFormat._2.hcursor.get[String]("error"), Right("InvalidRecord"))
+        assert(badFormat._2.hcursor.get[String]("message").toOption.exists(_.contains("datetime")))
+        assertEquals(missing._2.hcursor.get[String]("error"), Right("InvalidRecord"))
+        assert(missing._2.hcursor.get[String]("message").toOption.exists(_.contains("is required")))
+        assertEquals(wrongKey._1, Status.BadRequest)
+        assertEquals(rightKey._1, Status.Ok)
+    }
+  }
+
+  test("unknown collections report their status and honour the validate flag") {
+    harness().use { server =>
+      for
+        auth <- signedIn(server)
+        (access, did) = auth
+        custom = Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("com.example.custom"),
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("com.example.custom"),
+            "anything" -> Json.fromString("goes")))
+        unknown <- server.json(authorized(
+          post("/xrpc/com.atproto.repo.createRecord", custom), access))
+        demanded <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord",
+          custom.deepMerge(Json.obj("validate" -> Json.True))), access))
+        // A known schema can be bypassed, and then reports no status at all.
+        skipped <- server.json(authorized(post("/xrpc/com.atproto.repo.createRecord", Json.obj(
+          "repo" -> Json.fromString(did),
+          "collection" -> Json.fromString("app.bsky.feed.post"),
+          "validate" -> Json.False,
+          "record" -> Json.obj(
+            "$type" -> Json.fromString("app.bsky.feed.post"),
+            "text" -> Json.fromInt(3)))), access))
+      yield
+        assertEquals(unknown._1, Status.Ok)
+        assertEquals(unknown._2.hcursor.get[String]("validationStatus"), Right("unknown"))
+        assertEquals(demanded._1, Status.BadRequest)
+        assertEquals(demanded._2.hcursor.get[String]("error"), Right("InvalidRecord"))
+        assertEquals(skipped._1, Status.Ok)
+        assertEquals(skipped._2.hcursor.downField("validationStatus").focus, None)
+    }
+  }
+
   test("record validation rejects bad collections, keys and mismatched types") {
     harness().use { server =>
       for

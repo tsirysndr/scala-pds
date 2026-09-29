@@ -8,6 +8,7 @@ import pds.{Env, XrpcError}
 import pds.accounts.{Accounts, Session}
 import pds.crypto.Encoding
 import pds.firehose.Events
+import pds.lexicon.{Catalog, Validator}
 import pds.protocol.*
 import pds.repo.RepoStore
 import pds.storage.Sql
@@ -48,13 +49,22 @@ object RepoApi:
     if !json.isObject then throw XrpcError.invalidRequest(s"$name must be an object")
     Node.fromJson(json).fold(message => throw XrpcError.invalidRequest(message), identity)
 
-  private def checkType(record: Node, collection: String, validate: Option[Boolean]): Unit =
+  /** The `$type` and record-key rules always apply; schema validation applies
+    * when the collection has a known Lexicon, or is demanded by `validate`.
+    */
+  private def validated(
+      record: Node, collection: String, recordKey: String, validate: Option[Boolean]
+  ): Option[String] =
     record.recordType match
       case Some(value) if value == collection => ()
       case Some(value) =>
         throw XrpcError.invalidRequest(s"Record $$type $value does not match the collection")
       case None if validate.contains(false) => ()
       case None => throw XrpcError.invalidRequest("Records need a $type matching the collection")
+    Validator.validateRecord(Catalog.trusted, collection, recordKey, record, validate) match
+      case Right(status) => status
+      case Left(invalid) =>
+        throw XrpcError.named(Status.BadRequest, "InvalidRecord", invalid.message)
 
   private def collectionOf(body: Json): String =
     val value = Xrpc.requireField(body, "collection")
@@ -72,7 +82,9 @@ object RepoApi:
     Xrpc.field(body, name).map(value =>
       Cid.parse(value).getOrElse(throw XrpcError.invalidRequest(s"$name is not a CID")))
 
-  private def commitResult(env: Env, did: String, applied: Applied, path: String): Json =
+  private def commitResult(
+      env: Env, did: String, applied: Applied, path: String, status: Option[String]
+  ): Json =
     Json.obj(
       "uri" -> Json.fromString(s"at://$did/$path"),
       "cid" -> Json.fromString(applied.records.get(path).map(_._1.toString)
@@ -81,8 +93,8 @@ object RepoApi:
         "cid" -> Json.fromString(applied.commitCid.toString),
         "rev" -> Json.fromString(applied.commit.rev)
       ),
-      "validationStatus" -> Json.fromString("valid")
-    )
+      "validationStatus" -> status.map(Json.fromString).getOrElse(Json.Null)
+    ).deepDropNullValues
 
   private def write(
       env: Env, did: String, writes: Vector[Write], swapCommit: Option[Cid]
@@ -118,10 +130,10 @@ object RepoApi:
       collection = collectionOf(body)
       key = recordKey(body, generate = true)
       record = recordFrom(body)
-      _ = checkType(record, collection, Xrpc.flag(body, "validate"))
+      status = validated(record, collection, key, Xrpc.flag(body, "validate"))
       applied <- write(env, did, Vector(Write.Create(collection, key, record)),
         swap(body, "swapCommit"))
-      response <- Xrpc.ok(commitResult(env, did, applied, s"$collection/$key"))
+      response <- Xrpc.ok(commitResult(env, did, applied, s"$collection/$key", status))
     yield response
 
   private def putRecord(env: Env, request: Request[IO]): IO[Response[IO]] =
@@ -132,7 +144,7 @@ object RepoApi:
       collection = collectionOf(body)
       key = recordKey(body, generate = false)
       record = recordFrom(body)
-      _ = checkType(record, collection, Xrpc.flag(body, "validate"))
+      status = validated(record, collection, key, Xrpc.flag(body, "validate"))
       swapRecord = Xrpc.field(body, "swapRecord")
       applied <- env.database.transact { connection =>
         Accounts.requireActive(connection, did)
@@ -152,7 +164,7 @@ object RepoApi:
         Events.commit(connection, did, applied, Some(previous))
         applied
       }
-      response <- Xrpc.ok(commitResult(env, did, applied, s"$collection/$key"))
+      response <- Xrpc.ok(commitResult(env, did, applied, s"$collection/$key", status))
     yield response
 
   private def deleteRecord(env: Env, request: Request[IO]): IO[Response[IO]] =
@@ -194,7 +206,9 @@ object RepoApi:
         XrpcError.invalidRequest("writes is required"))
       _ <- IO.raiseUnless(items.nonEmpty && items.length <= 200)(
         XrpcError.invalidRequest("A batch holds between one and two hundred writes"))
-      writes = items.map(parseWrite)
+      parsed = items.map(parseWrite)
+      writes = parsed.map(_._1)
+      statuses = parsed.flatMap((item, status) => status.map(item.path -> _)).toMap
       applied <- write(env, did, writes, swap(body, "swapCommit"))
       response <- Xrpc.ok(Json.obj(
         "commit" -> Json.obj(
@@ -209,13 +223,14 @@ object RepoApi:
             "$type" -> Json.fromString(s"com.atproto.repo.applyWrites$kind"),
             "uri" -> Json.fromString(s"at://$did/${operation.path}"),
             "cid" -> operation.cid.map(value => Json.fromString(value.toString)).getOrElse(Json.Null),
-            "validationStatus" -> Json.fromString("valid")
+            "validationStatus" -> statuses.get(operation.path).map(Json.fromString)
+              .getOrElse(Json.Null)
           ).deepDropNullValues
         }*)
       ))
     yield response
 
-  private def parseWrite(item: Json): Write =
+  private def parseWrite(item: Json): (Write, Option[String]) =
     val kind = item.hcursor.get[String]("$type").toOption
       .getOrElse(throw XrpcError.invalidRequest("Every write needs a $type"))
     val collection = collectionOf(item)
@@ -223,14 +238,13 @@ object RepoApi:
       case "com.atproto.repo.applyWrites#create" =>
         val key = recordKey(item, generate = true)
         val record = recordFrom(item, "value")
-        checkType(record, collection, None)
-        Write.Create(collection, key, record)
+        (Write.Create(collection, key, record), validated(record, collection, key, None))
       case "com.atproto.repo.applyWrites#update" =>
+        val key = recordKey(item, generate = false)
         val record = recordFrom(item, "value")
-        checkType(record, collection, None)
-        Write.Update(collection, recordKey(item, generate = false), record)
+        (Write.Update(collection, key, record), validated(record, collection, key, None))
       case "com.atproto.repo.applyWrites#delete" =>
-        Write.Delete(collection, recordKey(item, generate = false))
+        (Write.Delete(collection, recordKey(item, generate = false)), None)
       case other => throw XrpcError.invalidRequest(s"Unsupported write type $other")
 
   private def getRecord(env: Env, request: Request[IO]): IO[Response[IO]] =
