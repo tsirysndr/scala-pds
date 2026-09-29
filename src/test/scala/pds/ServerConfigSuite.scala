@@ -85,3 +85,32 @@ class ServerConfigSuite extends munit.FunSuite:
     assert(!strict.signupEnabled)
     assert(strict.inviteRequired)
   }
+
+  test("reserved handles add to the built-in ones") {
+    val config = ServerConfig.fromEnv(Map(
+      "PDS_HOSTNAME" -> "pds.example.com",
+      "PDS_RESERVED_HANDLES" -> "dietpi, raspberrypi4,ORANGEPI-ZERO-3W, ,noreply")).toOption.get
+    // Configured names are added, lowercased and trimmed.
+    assert(config.reservedHandles.contains("dietpi"))
+    assert(config.reservedHandles.contains("raspberrypi4"))
+    assert(config.reservedHandles.contains("orangepi-zero-3w"))
+    assert(config.reservedHandles.contains("noreply"))
+    assert(!config.reservedHandles.contains(""))
+    // The built-in ones that shadow this server's own routes survive.
+    assert(config.reservedHandles.contains("xrpc"))
+    assert(config.reservedHandles.contains("oauth"))
+    assert(config.reservedHandles.contains("did"))
+  }
+
+  test("an unset list still reserves the built-in names") {
+    val config = ServerConfig.fromEnv(Map("PDS_HOSTNAME" -> "pds.example.com")).toOption.get
+    assert(config.reservedHandles.contains("admin"))
+    assert(config.reservedHandles.contains("xrpc"))
+  }
+
+  test("a reserved entry that is not a handle label is refused") {
+    for value <- Vector("alice.example.com", "has space", "UPPER_CASE", "a/b") do
+      assert(clue(ServerConfig.fromEnv(Map(
+        "PDS_HOSTNAME" -> "pds.example.com",
+        "PDS_RESERVED_HANDLES" -> value)).left.toOption).isDefined)
+  }

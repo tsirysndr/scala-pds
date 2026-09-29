@@ -381,3 +381,22 @@ class ServerFlowSuite extends munit.CatsEffectSuite:
         assertEquals(anonymous._1, Status.Unauthorized)
     }
   }
+
+  test("a configured reserved handle is refused like a built-in one") {
+    harness(Map("PDS_RESERVED_HANDLES" -> "raspberrypi4,dietpi")).use { server =>
+      def create(name: String) =
+        server.json(post("/xrpc/com.atproto.server.createAccount", Json.obj(
+          "handle" -> Json.fromString(s"$name.pds.example.com"),
+          "email" -> Json.fromString(s"$name@example.com"),
+          "password" -> Json.fromString("correct horse battery"))))
+      for
+        configured <- create("raspberrypi4")
+        builtIn <- create("xrpc")
+        allowed <- create("alice")
+      yield
+        assertEquals(configured._1, Status.BadRequest)
+        assertEquals(configured._2.hcursor.get[String]("error"), Right("InvalidHandle"))
+        assertEquals(builtIn._1, Status.BadRequest)
+        assertEquals(allowed._1, Status.Ok)
+    }
+  }

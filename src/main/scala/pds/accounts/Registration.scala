@@ -24,10 +24,6 @@ final case class Registration(
 )
 
 object Register:
-  private val reservedPrefixes = Set(
-    "admin", "administrator", "api", "account", "atproto", "did", "help", "localhost",
-    "moderation", "oauth", "pds", "root", "security", "support", "system", "www", "xrpc")
-
   final case class Result(account: Account, tokens: Tokens0, didDoc: Json)
 
   def run(env: Env, request: Registration): IO[Result] =
@@ -55,7 +51,7 @@ object Register:
       val name = handle.dropRight(suffix.length)
       if name.contains('.') then invalid("Handle may not contain extra subdomains")
       else if name.length < 3 then invalid("Handle must be at least three characters")
-      else if reservedPrefixes.contains(name) then invalid("Handle is reserved")
+      else if env.config.reservedHandles.contains(name) then invalid("Handle is reserved")
       else Right(handle)
 
   private def validateEmail(env: Env, request: Registration): Either[XrpcError, Option[String]] =

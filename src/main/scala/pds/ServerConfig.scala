@@ -18,6 +18,7 @@ final case class ServerConfig private (
     modServiceDid: Option[String],
     modServiceUrl: Option[String],
     handleAuthority: Option[String],
+    reservedHandles: Set[String],
     relayUrls: Vector[String],
     adminPassword: Option[String],
     contactEmail: Option[String],
@@ -37,6 +38,23 @@ final case class ServerConfig private (
   def availableUserDomains: Vector[String] = Vector(s".$userDomain")
 
 object ServerConfig:
+  /** Names nobody may register. The built-in ones shadow this server's own
+    * routes and protocol identifiers; a deployment adds to them, and servers
+    * sharing one handle domain should reserve the same names, or a name refused
+    * on one can still be taken on another.
+    */
+  private val builtInReservedHandles = Set(
+    "admin", "administrator", "api", "account", "atproto", "did", "help", "localhost",
+    "moderation", "oauth", "pds", "root", "security", "support", "system", "www", "xrpc")
+
+  private def reservedHandles(env: Map[String, String]): Either[String, Set[String]] =
+    val configured = env.getOrElse("PDS_RESERVED_HANDLES", "").split(",").toVector
+      .map(_.trim.toLowerCase(Locale.ROOT)).filter(_.nonEmpty)
+    configured.find(name => !name.matches("[a-z0-9-]+")) match
+      case Some(invalid) =>
+        Left(s"PDS_RESERVED_HANDLES may only contain handle labels, found '$invalid'")
+      case None => Right(builtInReservedHandles ++ configured)
+
   def fromEnv(env: Map[String, String]): Either[String, ServerConfig] =
     val hostname = env.getOrElse("PDS_HOSTNAME", "localhost").toLowerCase(Locale.ROOT)
     for
@@ -62,6 +80,7 @@ object ServerConfig:
       modServiceDid = env.get("PDS_MOD_SERVICE_DID").filter(_.startsWith("did:"))
       modServiceUrl <- optionalOrigin(env, "PDS_MOD_SERVICE_URL")
       handleAuthority <- optionalOrigin(env, "PDS_HANDLE_AUTHORITY")
+      reserved <- reservedHandles(env)
       relays <- env.getOrElse("PDS_RELAY_URLS", "").split(",").toVector
         .map(_.trim).filter(_.nonEmpty)
         .foldLeft[Either[String, Vector[String]]](Right(Vector.empty)) { (acc, value) =>
@@ -99,6 +118,7 @@ object ServerConfig:
       modServiceDid = modServiceDid,
       modServiceUrl = modServiceUrl,
       handleAuthority = handleAuthority,
+      reservedHandles = reserved,
       relayUrls = relays,
       adminPassword = adminPassword,
       contactEmail = env.get("PDS_CONTACT_EMAIL").filter(_.contains('@')),
