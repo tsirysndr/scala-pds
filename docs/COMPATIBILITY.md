@@ -156,14 +156,14 @@ preserves the fixture and asserts rejection.
 
 ## Not implemented
 
-Externally signed PLC recovery forks and directory reconciliation, and an
-end-to-end migration driver. Label *emission* belongs to a labeler rather than a
-PDS; self-labels inside records are validated like any other field. See [the
-roadmap](/roadmap/).
+Externally signed PLC recovery forks and directory reconciliation. Label
+*emission* belongs to a labeler rather than a PDS; self-labels inside records are
+validated like any other field. See [the roadmap](/roadmap/).
 
 The reference TypeScript packages verify this server's repositories, proofs,
-records and firehose frames, and the official client library drives it end to
-end — see [interoperability](/interop/). What is still untested is a **real
+records and firehose frames, the official client library drives it end to end,
+and the reference OAuth client completes the authorization flow against it — see
+[interoperability](/interop/). What is still untested is a **real
 relay** consuming the firehose and the **Bluesky application** itself signing in,
 which is the remaining gap between "the reference libraries accept it" and "it
 interoperates in production".

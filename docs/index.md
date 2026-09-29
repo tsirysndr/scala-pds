@@ -86,6 +86,8 @@ WebSocket firehose other services can follow.
   WebSocket, plus relay crawl requests at startup.
 - **Services** — an authenticated proxy to AppViews and labelers, private
   preferences, and the administrative and moderation APIs.
+- **Migration** — inbound service authentication, DID adoption vouched for by
+  the old host, and a driver that moves a whole account between two servers.
 - **Operations** — Prometheus metrics, a structured access log, checksummed
   backups, master-key and account-key rotation, and audited account recovery.
 

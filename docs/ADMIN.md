@@ -72,9 +72,11 @@ database rather than an API credential. They run on the host from the same jar:
 | `rotate-account-keys <identifier> [signing\|rotation\|both]` | replace an account's managed keys |
 | `backup <path>` | checksummed SQLite snapshot, safe while running |
 | `verify-backup <path>` | re-read a backup and check its checksum |
+| `migrate <flags>` | move an account here from another server |
 
-See [the master key](/master-key/) and [account
-security](/account-security/).
+`migrate` is the exception: it only makes XRPC calls, so it needs no database
+access and no master key. See [account migration](/migration/), [the master
+key](/master-key/) and [account security](/account-security/).
 
 ## Operational notes
 

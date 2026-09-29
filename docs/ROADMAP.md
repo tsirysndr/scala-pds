@@ -58,6 +58,9 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     server's repositories, proofs, records and firehose frames on every CI run,
     the official client library drives it end to end, and the reference OAuth
     client completes the authorization flow against it.
+21. **Account migration end to end** — inbound service authentication, DID
+    adoption vouched for by the old host, and a driver that runs the whole
+    sequence between two servers.
 
 ## Next
 
@@ -72,18 +75,10 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 - `com.atproto.label.*` emission, and an Ozone integration for moderation
   decisions taken elsewhere.
 
-### Storage and scale
-
-
 ### Key custody
 
 - Externally signed PLC recovery forks, and reconciliation when a directory
   changes outside this server.
-
-### Operations
-
-- A migration driver that runs the whole [account migration](/migration/)
-  sequence rather than leaving it to the client.
 
 ## Completion criteria
 

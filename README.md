@@ -9,10 +9,10 @@ email security flows, TOTP and WebAuthn passkeys, OAuth with DPoP and scoped
 consent, signed repositories with Lexicon-validated records and verified CAR
 import and export, content-addressed blobs in the database or an S3-compatible
 bucket, a WebSocket firehose with bounded retention and block collection, an
-authenticated service proxy, account migration primitives, and
+authenticated service proxy, account migration end to end, and
 administrative/moderation APIs — 71 XRPC methods, plus a React account and
 consent interface, Prometheus metrics and host commands for backups, key
-rotation and account recovery. See the [compatibility
+rotation, account recovery and migration. See the [compatibility
 matrix](docs/COMPATIBILITY.md) for exact coverage and the
 [roadmap](docs/ROADMAP.md) for what remains.
 
