@@ -41,6 +41,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     authenticated resolution and admission of Lexicons published outside it.
 12. **Blob backends** — blobs in the database or in an S3-compatible bucket,
     with a durable deletion queue.
+13. **Retention** — a bounded firehose window and block garbage collection that
+    never touches a reachable block.
 
 ## Next
 
@@ -60,8 +62,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 ### Storage and scale
 
 - Shared rate-limit counters (Redis), so several instances enforce one budget.
-- Block garbage collection, with a retention window that keeps firehose backfill
-  intact.
 - Streaming CAR export and import, rather than buffering the archive.
 
 ### Key custody

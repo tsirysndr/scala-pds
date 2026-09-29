@@ -94,6 +94,7 @@ Rate-limit counters are in-process, so each instance enforces its own share.
 | Limit | Value |
 | --- | --- |
 | Backfill batch | 1000 events |
+| Retention window | `PDS_FIREHOSE_RETENTION_HOURS`, default 72 hours |
 | Poll interval | 500 ms |
 | Keep-alive ping | 30 seconds |
 

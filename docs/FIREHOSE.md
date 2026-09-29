@@ -59,6 +59,18 @@ websocat "wss://pds.example.com/xrpc/com.atproto.sync.subscribeRepos?cursor=0"
 A fresh server with one account and one post emits `#identity`, `#account`,
 `#sync` and `#commit`, in that order.
 
+## Retention
+
+`PDS_FIREHOSE_RETENTION_HOURS` (72 by default, `0` to keep everything) bounds
+how far back a consumer can rewind. A background pass drops events past the
+window, and a second pass then reclaims the repository blocks those revisions
+were holding open — see [repositories](/repositories/).
+
+A consumer that falls further behind than the window cannot be served by
+`cursor`; it reads the whole repository with `com.atproto.sync.getRepo` and
+resumes live. That is why the retained window and the block retention are the
+same window: an event that can still be replayed always has its blocks.
+
 ## Announcing the server
 
 `PDS_RELAY_URLS` is a comma-separated list of relays. At startup the server

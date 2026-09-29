@@ -24,7 +24,8 @@ final case class ServerConfig private (
     emailToken: Option[String],
     emailFrom: String,
     blobMaxSize: Long,
-    rateLimitPerMinute: Int
+    rateLimitPerMinute: Int,
+    firehoseRetentionHours: Int
 ):
   val serviceDid: String = s"did:web:$hostname"
   def emailEnabled: Boolean = emailEndpoint.isDefined
@@ -73,6 +74,9 @@ object ServerConfig:
       rateLimit <- env.getOrElse("PDS_RATE_LIMIT_PER_MINUTE", "300").toIntOption
         .filter(value => value >= 1 && value <= 100000)
         .toRight("PDS_RATE_LIMIT_PER_MINUTE must be between 1 and 100000")
+      retention <- env.getOrElse("PDS_FIREHOSE_RETENTION_HOURS", "72").toIntOption
+        .filter(value => value >= 0 && value <= 8760)
+        .toRight("PDS_FIREHOSE_RETENTION_HOURS must be between 0 and 8760")
     yield ServerConfig(
       host = host,
       port = port,
@@ -94,7 +98,8 @@ object ServerConfig:
       emailToken = env.get("PDS_EMAIL_TOKEN").filter(_.nonEmpty),
       emailFrom = env.getOrElse("PDS_EMAIL_FROM", s"noreply@$hostname"),
       blobMaxSize = blobMaxSize,
-      rateLimitPerMinute = rateLimit
+      rateLimitPerMinute = rateLimit,
+      firehoseRetentionHours = retention
     )
 
   private def flag(env: Map[String, String], name: String, default: Boolean): Boolean =

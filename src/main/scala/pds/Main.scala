@@ -153,7 +153,8 @@ object Main extends IOApp:
   /** Email delivery and expiry sweeps. */
   private def background(env: Env): IO[Unit] =
     val work = Email.deliver(env).attempt *> pds.repo.BlobStore.sweep(env).attempt *>
-      sweep(env).attempt
+      pds.repo.BlockGc.expireEvents(env).attempt *>
+      pds.repo.BlockGc.sweep(env).attempt *> sweep(env).attempt
     (work *> IO.sleep(30.seconds)).foreverM
 
   private def sweep(env: Env): IO[Unit] =

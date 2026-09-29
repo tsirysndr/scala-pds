@@ -96,10 +96,28 @@ index and blob references are then rebuilt from the imported tree.
 
 ## Storage model
 
-Blocks are append-only, keyed by `(did, cid)`. Historical revisions therefore
-stay resolvable for firehose consumers, and a repeated write costs nothing new
-because identical content has an identical CID. Nothing orphaned is ever served:
-exports and reads walk from the current root.
+Blocks are keyed by `(did, cid)` and written append-only within a revision, so a
+repeated write costs nothing new — identical content has an identical CID — and
+historical revisions stay resolvable for firehose consumers. Nothing orphaned is
+ever served: exports and reads walk from the current root.
+
+### Garbage collection
+
+Overwriting or deleting a record orphans the blocks that held the old version,
+and the superseded commit and tree nodes with it. A background pass reclaims
+them, under two rules:
+
+- a block reachable from the **current commit** is never removed, whatever its
+  revision, so the repository stays exportable and verifiable;
+- a block whose revision is still needed by a retained firehose event is never
+  removed, so backfill keeps working.
+
+That second bound is the [firehose retention window](/firehose/). With
+`PDS_FIREHOSE_RETENTION_HOURS=0`, events are kept forever and no block is ever
+collected.
+
+Collection is idempotent and runs per account, a bounded number of accounts per
+pass, so it never holds a long transaction.
 
 ## Limits
 
