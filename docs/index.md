@@ -72,7 +72,8 @@ WebSocket firehose other services can follow.
 - **Storage** — checksummed migrations over PostgreSQL or SQLite, one schema
   for both, epoch-millisecond timestamps and a pooled connection lifecycle.
 - **Identity** — `did:plc` genesis and update operations, `did:web` documents,
-  DNS and HTTPS handle resolution with a bounded cache.
+  DNS and HTTPS handle resolution with a bounded cache, and reconciliation
+  against the directory that publishes them.
 - **Accounts** — registration, sessions, refresh rotation, app passwords,
   invite codes, email flows, TOTP, WebAuthn passkeys, deactivation, deletion and
   takedowns.

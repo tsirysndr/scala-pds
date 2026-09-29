@@ -12,7 +12,7 @@ bucket, a WebSocket firehose with bounded retention and block collection, an
 authenticated service proxy, account migration end to end, and
 administrative/moderation APIs — 71 XRPC methods, plus a React account and
 consent interface, Prometheus metrics and host commands for backups, key
-rotation, account recovery and migration. See the [compatibility
+rotation, account recovery, migration and identity reconciliation. See the [compatibility
 matrix](docs/COMPATIBILITY.md) for exact coverage and the
 [roadmap](docs/ROADMAP.md) for what remains.
 

@@ -94,8 +94,10 @@ the rotation key themselves:
 - `com.atproto.identity.signPlcOperation` merges the requested changes onto the
   directory's current head and signs the result. When email is configured the
   emailed code is required.
-- `com.atproto.identity.submitPlcOperation` submits an already-signed operation
-  and marks the account's keys as confirmed.
+- `com.atproto.identity.submitPlcOperation` submits an already-signed operation.
+  The keys this server holds are marked confirmed only when the operation
+  actually names them, because an operation signed elsewhere can hand the
+  identity to a different key.
 
 ## Rotating managed keys
 
@@ -133,6 +135,42 @@ reflects the new key immediately.
 
 This is different from [master-key rotation](/master-key/), which re-encrypts
 the same keys under a new sealing key without changing any published identity.
+
+## Recovery forks and reconciliation
+
+Anyone holding a rotation key can change a `did:plc` document, and the
+`recoveryKey` given at registration outranks this server's own. Such an
+operation is signed entirely outside this server — it can be submitted through
+`submitPlcOperation` or straight to the directory — and it can replace the
+signing key, the rotation keys, the handle or the PDS endpoint. The local view is
+therefore never assumed to be current; the difference is looked for:
+
+```sh
+java -jar scala-pds.jar reconcile           # report
+java -jar scala-pds.jar reconcile --repair  # report and act
+```
+
+```
+scala-pds: checked 128 managed identity/identities
+scala-pds: did:plc:… (alice.example.com) handle: the document names alice2.example.com — repaired
+scala-pds: did:plc:… (bob.example.com) signing-key: the document names did:key:zQ3sh…, this server holds did:key:zDna…
+```
+
+`--identifier <handle|did|email>` narrows it to one account. Each managed
+identity is read from the directory's log head, the cached document is dropped,
+and the drift is classified:
+
+| Kind | Meaning | `--repair` |
+| --- | --- | --- |
+| `handle` | the document names another handle | adopt it locally, if free, and emit `#identity` |
+| `endpoint` | the document names another PDS | deactivate the account here |
+| `absent` | the directory holds no operation for the DID | deactivate the account here |
+| `signing-key` | the document names a signing key this server does not hold | reported only |
+| `rotation-key` | this server's rotation key is no longer in the log | reported only |
+
+The last two cannot be repaired from here: whoever signed that change holds a key
+this server does not, which is exactly what a recovery key is for. The command
+exits `0` when nothing is outstanding and `3` when something is.
 
 ## Outbound safety
 

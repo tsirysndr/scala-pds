@@ -156,9 +156,8 @@ preserves the fixture and asserts rejection.
 
 ## Not implemented
 
-Externally signed PLC recovery forks and directory reconciliation. Label
-*emission* belongs to a labeler rather than a PDS; self-labels inside records are
-validated like any other field. See [the roadmap](/roadmap/).
+Label *emission* belongs to a labeler rather than a PDS; self-labels inside
+records are validated like any other field. See [the roadmap](/roadmap/).
 
 The reference TypeScript packages verify this server's repositories, proofs,
 records and firehose frames, the official client library drives it end to end,

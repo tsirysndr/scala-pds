@@ -61,6 +61,9 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 21. **Account migration end to end** — inbound service authentication, DID
     adoption vouched for by the old host, and a driver that runs the whole
     sequence between two servers.
+22. **Directory reconciliation** — managed identities compared against the
+    directory's log head, so an operation signed outside this server is found
+    and either adopted or reported.
 
 ## Next
 
@@ -74,11 +77,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 - `com.atproto.label.*` emission, and an Ozone integration for moderation
   decisions taken elsewhere.
-
-### Key custody
-
-- Externally signed PLC recovery forks, and reconciliation when a directory
-  changes outside this server.
 
 ## Completion criteria
 

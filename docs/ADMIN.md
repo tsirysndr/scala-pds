@@ -73,6 +73,7 @@ database rather than an API credential. They run on the host from the same jar:
 | `backup <path>` | checksummed SQLite snapshot, safe while running |
 | `verify-backup <path>` | re-read a backup and check its checksum |
 | `migrate <flags>` | move an account here from another server |
+| `reconcile [--identifier <id>] [--repair]` | compare managed identities against the directory |
 
 `migrate` is the exception: it only makes XRPC calls, so it needs no database
 access and no master key. See [account migration](/migration/), [the master
