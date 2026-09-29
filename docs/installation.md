@@ -18,17 +18,24 @@ java -jar target/scala-3.3.7/scala-pds.jar
 
 ## Docker
 
-The image builds the assembly in one stage and runs it from a JRE in the next.
-The account interface is committed to the repository, so no Node toolchain is
-needed to build the image.
+A published image is available for `linux/amd64` and `linux/arm64`:
 
 ```sh
-docker build -t scala-pds .
-
 docker run --rm -p 3000:3000 \
   -v scala-pds-data:/data \
   -e PDS_MASTER_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')" \
-  scala-pds
+  ghcr.io/tsirysndr/scala-pds:latest
+```
+
+`latest` follows the newest release; a version tag such as `0.1.0` pins one.
+
+The image builds the assembly in one stage and runs it from a JRE in the next.
+The account interface is committed to the repository, so no Node toolchain is
+needed to build it yourself:
+
+```sh
+docker build -t scala-pds .
+docker run --rm -p 3000:3000 scala-pds
 ```
 
 The container stores its SQLite database under `/data`, runs as an unprivileged
@@ -64,3 +71,13 @@ invoke it from, under `data/`.
 | Node | 24 | rebuilding the account interface |
 | Deno | 2 | building and deploying this documentation site |
 | PostgreSQL | 17 or newer | the durable backend beyond a single host |
+
+## Releasing an image
+
+Pushing a `v*` tag, or dispatching the `publish` workflow, builds each
+architecture on its own native runner, runs the result before anything points at
+it, and then assembles the manifest list that carries the tags:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```

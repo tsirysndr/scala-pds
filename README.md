@@ -19,6 +19,12 @@ matrix](docs/COMPATIBILITY.md) for exact coverage and the
 ## Quick start
 
 ```sh
+docker run --rm -p 3000:3000 ghcr.io/tsirysndr/scala-pds:latest
+```
+
+Or from source:
+
+```sh
 mise trust && mise install
 
 # Zero configuration: stores everything in data/scala-pds.sqlite3 and

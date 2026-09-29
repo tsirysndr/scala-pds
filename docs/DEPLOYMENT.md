@@ -63,6 +63,10 @@ docker compose up -d --build
 Both variables are required — the file refuses to start without them rather than
 defaulting to something guessable.
 
+`--build` compiles the image locally. To run a published one instead, set
+`image: ghcr.io/tsirysndr/scala-pds:latest` on the `pds` service and drop the
+`build` key; see [installation](/installation/).
+
 ## systemd
 
 ```ini
