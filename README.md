@@ -78,6 +78,7 @@ Browse these pages as a website at <https://scala-pds.tsirysndr.deno.net/>
 ### Status
 
 - [Compatibility matrix](docs/COMPATIBILITY.md) — implemented routes and verification evidence
+- [Interoperability](docs/INTEROP.md) — what the reference implementation verifies
 - [Current limits](docs/LIMITS.md) — validation, repository, token and rate-limit bounds
 - [Roadmap](docs/ROADMAP.md) — what is done and what is next
 

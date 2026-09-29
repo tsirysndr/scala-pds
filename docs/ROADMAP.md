@@ -54,6 +54,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     re-reading them.
 19. **Managed key rotation** — new signing and rotation keys published through
     the directory, with the head re-signed so exports keep verifying.
+20. **Reference verification** — the atproto TypeScript packages check the
+    server's repositories, proofs, records and firehose frames on every CI run.
 
 ## Next
 
@@ -62,8 +64,7 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 - Run an independent client (a Bluesky app build, `goat`, `atcute`) against a
   deployed server and record the result.
 - Have a real relay consume the firehose and confirm it accepts the commits.
-- Add a conformance run against the upstream Lexicon schemas rather than only
-  shape checks.
+- Check the OAuth server with a reference client implementation.
 
 ### Records and Lexicons
 
@@ -91,6 +92,7 @@ accounts can migrate without data loss. OAuth, lifecycle and administrative APIs
 abuse controls, durability and operational documentation must also be implemented
 and tested.
 
-The first four are demonstrated by the test suite. The relay and independent
-client checks are the honest gap: until they are run against real software, this
-is a PDS that passes its own tests.
+The first four are demonstrated by the test suite, and the repository, proof,
+record and firehose formats are additionally verified by the reference
+TypeScript packages — see [interoperability](/interop/). A real relay and a real
+client remain the honest gap.

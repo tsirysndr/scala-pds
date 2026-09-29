@@ -55,6 +55,7 @@ const sidebar = [
     title: "Status",
     items: [
       { url: "/compatibility/", label: "Compatibility matrix" },
+      { url: "/interop/", label: "Interoperability" },
       { url: "/limits/", label: "Current limits" },
       { url: "/roadmap/", label: "Roadmap" },
     ],

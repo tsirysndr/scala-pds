@@ -23,6 +23,15 @@ network. It covers:
   `applyWrites` atomicity, blobs, CAR export verification, and the whole OAuth
   authorization code flow including DPoP binding and revocation.
 
+## Interoperability
+
+```sh
+bash scripts/interop.sh
+```
+
+Starts a throwaway server and hands its output to the reference atproto
+TypeScript packages. See [interoperability](/interop/).
+
 ## The account interface
 
 ```sh

@@ -148,6 +148,7 @@ proxy](/proxy/).
 | Empty MST root | `bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm` |
 | CAR archives | round trip, tampered block rejection, truncation, version rejection |
 | HTTP flows | end-to-end suites for accounts, repositories, the account interface and OAuth |
+| Reference implementation | `@atproto/repo`, `@atproto/crypto` and `@atproto/lexicon` verify the exported repository, the inclusion and exclusion proofs, the stored records and the firehose frames — see [interoperability](/interop/) |
 
 One upstream "valid" NSID fixture exceeds the 253-character domain authority the
 current [NSID specification](https://atproto.com/specs/nsid) sets; the test
@@ -160,5 +161,8 @@ end-to-end migration driver. Label *emission* belongs to a labeler rather than a
 PDS; self-labels inside records are validated like any other field. See [the
 roadmap](/roadmap/).
 
-Nothing here has yet been run against an independent client or a real relay,
-which is the honest gap between "passes its own tests" and "interoperates".
+The reference TypeScript packages verify this server's repositories, proofs,
+records and firehose frames — see [interoperability](/interop/). What is still
+untested is a **real relay** consuming the firehose and a **real client** signing
+in, which is the remaining gap between "the reference libraries accept it" and
+"it interoperates in production".
