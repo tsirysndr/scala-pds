@@ -1,14 +1,38 @@
 # Account interface
 
-`/account` serves a React single-page application that handles sign-in, account
-settings and the OAuth consent screen. The server exposes exactly three asset
-paths, so the strict content security policy never needs to widen:
+A React single-page application handles sign-in, account settings and the OAuth
+consent screen. It is served from exactly three asset paths, so the strict
+content security policy never needs to widen.
 
-| Path                 | Contents                |
-| -------------------- | ----------------------- |
-| `/account`           | the HTML shell          |
-| `/account/app.js`    | the bundled application |
-| `/account/style.css` | the bundled stylesheet  |
+## Routes
+
+There are **two pages**. Everything else is either an asset or JSON.
+
+| Route                     | Method | Purpose                                            |
+| ------------------------- | ------ | -------------------------------------------------- |
+| `/account`, `/account/`   | GET    | the account interface                              |
+| `/oauth/flow/<id>`        | GET    | the OAuth consent screen — the *same* HTML shell   |
+| `/account/app.js`         | GET    | the bundled application                            |
+| `/account/style.css`      | GET    | the bundled stylesheet                             |
+| `/account/session`        | GET    | the whole account view as JSON                     |
+| `/account/action/<name>`  | POST   | an account action; answers with the fresh view     |
+| `/oauth/authorize`        | GET    | creates a flow and redirects to `/oauth/flow/<id>` |
+| `/oauth/flow/<id>/state`  | GET    | the flow view as JSON                              |
+| `/oauth/flow/<id>/attach` | POST   | binds the signed-in owner to the flow              |
+| `/oauth/flow/<id>/decide` | POST   | approves or refuses, and returns the redirect      |
+
+`<id>` is 43 URL-safe characters. Nothing secret is in it — the flow's secret is
+in an `HttpOnly` cookie — so a leaked or logged URL grants nothing.
+
+**There is no client-side routing.** The bundle reads the path only to recover a
+flow id; which screen appears is decided by the session stage and the flow state,
+not by the URL. So there is no address for "the signup screen" or "the settings
+screen" to bookmark or link to: `/account` shows whatever that visitor's state
+calls for, and `/oauth/flow/<id>` shows whatever that flow needs next.
+
+Reaching a consent screen therefore always starts at
+[`/oauth/par`](/oauth/#pushed-authorization-requests) followed by `/oauth/authorize`;
+`/oauth/flow/<id>` is never constructed by hand.
 
 ## Stack
 

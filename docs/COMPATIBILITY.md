@@ -120,21 +120,21 @@ proxy](/proxy/).
 
 ## Non-XRPC routes
 
-| Path                                                        | Purpose                                                |
-| ----------------------------------------------------------- | ------------------------------------------------------ |
-| `GET /`                                                     | the ASCII banner                                       |
-| `GET /xrpc/_health`, `GET /_health`                         | liveness, with and without a database round trip       |
-| `GET /metrics`                                              | Prometheus metrics, administrator credentials required |
-| `GET /.well-known/did.json`                                 | a `did:web` document, chosen by the request `Host`     |
-| `GET /.well-known/atproto-did`                              | the DID of the handle the request `Host` names         |
-| `GET /.well-known/oauth-authorization-server`               | OAuth server metadata                                  |
-| `GET /.well-known/oauth-protected-resource`                 | OAuth resource metadata                                |
-| `POST /oauth/par`                                           | pushed authorization requests                          |
-| `GET /oauth/authorize`                                      | starts the browser flow                                |
-| `GET /oauth/flow/<id>`, `/state`; `POST /attach`, `/decide` | the consent flow                                       |
-| `POST /oauth/token`, `POST /oauth/revoke`                   | tokens                                                 |
-| `GET /account`, `/account/app.js`, `/account/style.css`     | the account interface                                  |
-| `GET /account/session`, `POST /account/action/*`            | its backing API                                        |
+| Path                                                                 | Purpose                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /`                                                              | the ASCII banner                                              |
+| `GET /xrpc/_health`, `GET /_health`                                  | liveness, with and without a database round trip              |
+| `GET /metrics`                                                       | Prometheus metrics, administrator credentials required        |
+| `GET /.well-known/did.json`                                          | a `did:web` document, chosen by the request `Host`            |
+| `GET /.well-known/atproto-did`                                       | the DID of the handle the request `Host` names                |
+| `GET /.well-known/oauth-authorization-server`                        | OAuth server metadata                                         |
+| `GET /.well-known/oauth-protected-resource`                          | OAuth resource metadata                                       |
+| `POST /oauth/par`                                                    | pushed authorization requests                                 |
+| `GET /oauth/authorize`                                               | starts the browser flow                                       |
+| `GET /oauth/flow/<id>`, `/state`; `POST /attach`, `/decide`          | the consent flow; the page itself is the account shell        |
+| `POST /oauth/token`, `POST /oauth/revoke`                            | tokens                                                        |
+| `GET /account`, `/account/`, `/account/app.js`, `/account/style.css` | the account interface — see [its routes](/account-ui/#routes) |
+| `GET /account/session`, `POST /account/action/*`                     | its backing API                                               |
 
 ## Cross-origin access
 
