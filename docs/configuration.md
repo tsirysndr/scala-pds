@@ -88,7 +88,8 @@ Without it, each instance counts on its own. See [deployment](/deployment/).
 | --- | --- | --- |
 | `PDS_APPVIEW_URL` | unset | AppView origin for proxied `app.bsky.*` queries |
 | `PDS_APPVIEW_DID` | unset | AppView DID, the audience of proxy service tokens |
-| `PDS_MOD_SERVICE_DID` | unset | moderation service DID allowed to act with a service token |
+| `PDS_MOD_SERVICE_DID` | unset | moderation service DID: the audience of reports, and allowed to act on the administrative methods |
+| `PDS_MOD_SERVICE_URL` | unset | moderation service origin, where reports are sent |
 | `PDS_RELAY_URLS` | unset | comma-separated relays asked to crawl this host at startup |
 | `PDS_BLOB_MAX_SIZE` | `5242880` | largest accepted blob in bytes, 1 KiB–100 MiB |
 

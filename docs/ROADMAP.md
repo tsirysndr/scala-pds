@@ -64,8 +64,9 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 22. **Directory reconciliation** — managed identities compared against the
     directory's log head, so an operation signed outside this server is found
     and either adopted or reported.
-23. **Moderation service access** — a configured moderation service acts on the
-    administrative methods with a scoped service token of its own, rather than
+23. **Moderation service integration** — reports are proxied to the configured
+    moderation service signed for the reporting account, and that service acts on
+    the administrative methods with a scoped service token of its own rather than
     the operator's password.
 
 ## Next

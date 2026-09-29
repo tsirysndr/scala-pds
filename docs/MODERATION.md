@@ -70,12 +70,19 @@ owner, with their password and an emailed code) and
 remove the account row, its repository blocks and its blobs. Every dependent row
 — sessions, app passwords, tokens, preferences, OAuth grants — cascades with it.
 
+## Reports
+
+`com.atproto.moderation.createReport` is proxied to `PDS_MOD_SERVICE_URL`, signed
+as an inter-service token for the reporting account, so the moderation service
+knows who reported what. It requires a session, and answers `NotImplemented` when
+no moderation service is configured. See [the service proxy](/proxy/).
+
 ## A moderation service acting here
 
 The administrator password is an operator credential and should not be handed to
 another service. Set `PDS_MOD_SERVICE_DID` to a moderation service's DID — an
 Ozone deployment, say — and it can call the administrative methods with its own
-identity instead:
+identity instead, the other direction from reports:
 
 ```
 Authorization: Bearer <service token signed by the moderation service>

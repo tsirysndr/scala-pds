@@ -9,7 +9,8 @@ queries and signs them on the account's behalf.
 | Request | Target |
 | --- | --- |
 | `atproto-proxy: <did>#<service id>` | that service, resolved from the DID document |
-| no header | `PDS_APPVIEW_URL` with `PDS_APPVIEW_DID` |
+| no header, `com.atproto.moderation.*` | `PDS_MOD_SERVICE_URL` with `PDS_MOD_SERVICE_DID` |
+| no header, anything else | `PDS_APPVIEW_URL` with `PDS_APPVIEW_DID` |
 
 The header must be a DID and a non-empty fragment. The DID is resolved and the
 matching `service` entry supplies the endpoint, so the client names *who* it
@@ -18,10 +19,15 @@ request is answered `NotImplemented`.
 
 ## What gets proxied
 
-Any `app.bsky.*`, `chat.bsky.*` or `tools.ozone.*` method this server does not
-implement itself. Methods it does implement — including
-`app.bsky.actor.getPreferences` and `putPreferences`, which are private to the
-PDS — are always answered locally.
+Any `app.bsky.*`, `chat.bsky.*`, `tools.ozone.*` or `com.atproto.moderation.*`
+method this server does not implement itself. Methods it does implement —
+including `app.bsky.actor.getPreferences` and `putPreferences`, which are private
+to the PDS — are always answered locally.
+
+`com.atproto.moderation.createReport` goes to the moderation service rather than
+the AppView, and requires a session: a report names the account making it, so it
+cannot be sent anonymously. Without a moderation service configured the answer is
+`NotImplemented` rather than a silently dropped report.
 
 ## Authentication
 

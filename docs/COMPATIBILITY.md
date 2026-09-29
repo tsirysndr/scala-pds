@@ -107,8 +107,15 @@ HTTP Basic, or a scoped service token from `PDS_MOD_SERVICE_DID`).
 | `app.bsky.actor.getPreferences` | GET | privileged | never proxied |
 | `app.bsky.actor.putPreferences` | POST | privileged | replaces the whole set |
 
-Other `app.bsky.*`, `chat.bsky.*` and `tools.ozone.*` methods are proxied to the
-configured AppView or to the service named by `atproto-proxy`. See [the service
+## com.atproto.moderation
+
+| Method | Verb | Auth | Notes |
+| --- | --- | --- | --- |
+| `createReport` | POST | session | proxied to the moderation service, signed for the reporting account |
+
+Other `app.bsky.*`, `chat.bsky.*`, `tools.ozone.*` and `com.atproto.moderation.*`
+methods are proxied to the service named by `atproto-proxy`, or to the configured
+AppView — to the moderation service for reports. See [the service
 proxy](/proxy/).
 
 ## Non-XRPC routes
