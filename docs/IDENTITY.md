@@ -75,6 +75,32 @@ resolve them without a DNS record: `GET /.well-known/atproto-did` answers with
 the bare DID of the account whose handle is the request's `Host`, as
 `text/plain` and `no-store`, and `404` for a domain no handle here claims.
 
+## Sharing a handle domain with another server
+
+One handle domain can be served by several PDS instances — `*.bsky.social` works
+that way — because handle resolution belongs to whichever server owns the
+wildcard, not to whichever server stores the repository. That server answers
+`/.well-known/atproto-did` for the whole namespace, and the DID documents point
+at wherever the repositories actually live.
+
+To be one of several servers in such a domain, two things have to hold.
+
+The owner of the wildcard has to resolve this server's handles. That is its
+configuration, not this server's: it needs to answer `/.well-known/atproto-did`
+for them, and, if it issues certificates on demand, to allow those names as well
+— otherwise the TLS handshake fails before resolution is ever attempted.
+
+`PDS_HANDLE_AUTHORITY` is that server's origin. Before allocating a handle in its
+own user domain — at registration and at `updateHandle` — this server asks the
+authority `com.atproto.identity.resolveHandle` and refuses a name the authority
+already resolves to a different account. Only an answered claim counts as taken:
+an authority that cannot be reached leaves the name unproven rather than
+blocking registration, and a name that resolves back to the account asking for it
+is not a collision with itself.
+
+Without `PDS_HANDLE_AUTHORITY` the server assumes it alone allocates its user
+domain, which is the right assumption when it owns that domain outright.
+
 ## Changing a handle
 
 `com.atproto.identity.updateHandle` accepts a handle under `PDS_USER_DOMAIN`
