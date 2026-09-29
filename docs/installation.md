@@ -64,13 +64,13 @@ invoke it from, under `data/`.
 
 ## Toolchain summary
 
-| Tool | Version | Used for |
-| --- | --- | --- |
-| Temurin JDK | 21 (pinned in `mise.toml`) | running the server and tests |
-| sbt | 1.10.7 | build, tests, assembly |
-| Node | 24 | rebuilding the account interface |
-| Deno | 2 | building and deploying this documentation site |
-| PostgreSQL | 17 or newer | the durable backend beyond a single host |
+| Tool        | Version                    | Used for                                       |
+| ----------- | -------------------------- | ---------------------------------------------- |
+| Temurin JDK | 21 (pinned in `mise.toml`) | running the server and tests                   |
+| sbt         | 1.10.7                     | build, tests, assembly                         |
+| Node        | 24                         | rebuilding the account interface               |
+| Deno        | 2                          | building and deploying this documentation site |
+| PostgreSQL  | 17 or newer                | the durable backend beyond a single host       |
 
 ## Releasing an image
 

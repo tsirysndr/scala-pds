@@ -29,10 +29,10 @@ when no account matched.
 
 Tokens are HS256 JWTs keyed from the master key:
 
-| Token | Lifetime | Claims |
-| --- | --- | --- |
-| access | 2 hours | `scope`, `sub`, `aud`, `epoch`, `iat`, `exp`, `jti` |
-| refresh | 90 days | `scope`, `sub`, `aud`, `epoch`, `jti` (the session id), `iat`, `exp` |
+| Token   | Lifetime | Claims                                                               |
+| ------- | -------- | -------------------------------------------------------------------- |
+| access  | 2 hours  | `scope`, `sub`, `aud`, `epoch`, `iat`, `exp`, `jti`                  |
+| refresh | 90 days  | `scope`, `sub`, `aud`, `epoch`, `jti` (the session id), `iat`, `exp` |
 
 `aud` is the service DID, so a token issued by another PDS is refused. `epoch`
 is the account's security epoch: raising it — on a password change, a password
@@ -64,14 +64,14 @@ Each flow issues a single-use code, stored only as a digest, that expires in
 fifteen minutes; issuing a new code for the same purpose invalidates the
 previous one.
 
-| Purpose | Request | Confirm |
-| --- | --- | --- |
-| Confirm an address | `requestEmailConfirmation` | `confirmEmail` |
-| Change an address | `requestEmailUpdate` | `updateEmail` |
-| Reset a password | `requestPasswordReset` | `resetPassword` |
-| Delete the account | `requestAccountDelete` | `deleteAccount` |
-| Sign in (second factor) | issued automatically | `login/factor` |
-| Sign a PLC operation | `requestPlcOperationSignature` | `signPlcOperation` |
+| Purpose                 | Request                        | Confirm            |
+| ----------------------- | ------------------------------ | ------------------ |
+| Confirm an address      | `requestEmailConfirmation`     | `confirmEmail`     |
+| Change an address       | `requestEmailUpdate`           | `updateEmail`      |
+| Reset a password        | `requestPasswordReset`         | `resetPassword`    |
+| Delete the account      | `requestAccountDelete`         | `deleteAccount`    |
+| Sign in (second factor) | issued automatically           | `login/factor`     |
+| Sign a PLC operation    | `requestPlcOperationSignature` | `signPlcOperation` |
 
 `requestPasswordReset` answers the same way whether or not the address exists,
 so it does not enumerate accounts. `resetPassword` raises the security epoch,
@@ -81,12 +81,12 @@ sign-in.
 
 ## Deactivation, deletion and takedown
 
-| State | Set by | Effect |
-| --- | --- | --- |
-| `active` | default | everything works |
-| `deactivated` | `deactivateAccount`, owner | API access refused with `AccountDeactivated`; repository still exportable; `#account` event emitted |
-| `taken_down` | `com.atproto.admin.updateSubjectStatus` | access refused with `AccountTakedown`; the prior status is remembered so lifting the takedown restores it |
-| deleted | `deleteAccount` (password and emailed code) or the admin API | blocks, blobs and the account row removed; `#account` event emitted |
+| State         | Set by                                                       | Effect                                                                                                    |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `active`      | default                                                      | everything works                                                                                          |
+| `deactivated` | `deactivateAccount`, owner                                   | API access refused with `AccountDeactivated`; repository still exportable; `#account` event emitted       |
+| `taken_down`  | `com.atproto.admin.updateSubjectStatus`                      | access refused with `AccountTakedown`; the prior status is remembered so lifting the takedown restores it |
+| deleted       | `deleteAccount` (password and emailed code) or the admin API | blocks, blobs and the account row removed; `#account` event emitted                                       |
 
 `activateAccount` reverses a deactivation but refuses while a takedown is in
 force. `deactivateAccount` accepts an optional `deleteAfter` timestamp; the

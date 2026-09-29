@@ -9,12 +9,12 @@ Events are rows in a durable, monotonic sequence, written **in the same
 transaction as the change they describe**. A consumer therefore never sees a
 commit the repository does not have, and never misses one the repository does.
 
-| Type | Emitted when |
-| --- | --- |
-| `#commit` | records were created, updated or deleted |
-| `#identity` | an account was created, or its handle changed |
-| `#account` | an account was created, deactivated, taken down or deleted |
-| `#sync` | a repository was created or imported, carrying its current head |
+| Type        | Emitted when                                                    |
+| ----------- | --------------------------------------------------------------- |
+| `#commit`   | records were created, updated or deleted                        |
+| `#identity` | an account was created, or its handle changed                   |
+| `#account`  | an account was created, deactivated, taken down or deleted      |
+| `#sync`     | a repository was created or imported, carrying its current head |
 
 ## Frames
 
@@ -48,12 +48,12 @@ body:   { "name": "OutdatedCursor", "message": "…some events were skipped" }
 
 ## Cursors
 
-| `cursor` | Behaviour |
-| --- | --- |
-| omitted | stream events from now on |
-| within the retained sequence | replay from that sequence number, then continue live |
+| `cursor`                         | Behaviour                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| omitted                          | stream events from now on                                                         |
+| within the retained sequence     | replay from that sequence number, then continue live                              |
 | older than the retained sequence | an `OutdatedCursor` `#info` message, then replay from the oldest event still held |
-| ahead of the sequence | a `FutureCursor` error frame, and the connection ends |
+| ahead of the sequence            | a `FutureCursor` error frame, and the connection ends                             |
 
 A consumer that asks for a cursor the retention window has passed is **told so**
 before anything else arrives, because the alternative — quietly resuming from the

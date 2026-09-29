@@ -6,11 +6,11 @@ commits or publish identity operations.
 
 ## What it protects
 
-| Secret | Sealed with purpose |
-| --- | --- |
+| Secret                  | Sealed with purpose       |
+| ----------------------- | ------------------------- |
 | Repository signing keys | `pds/signing-key/<curve>` |
 | `did:plc` rotation keys | `pds/signing-key/<curve>` |
-| TOTP secrets | `pds/totp` |
+| TOTP secrets            | `pds/totp`                |
 
 It also derives, without storing anything:
 
@@ -34,10 +34,10 @@ startup.
 
 ## How it is provided
 
-| Backend | Behaviour |
-| --- | --- |
-| PostgreSQL | `PDS_MASTER_KEY` is **required**; startup fails without it |
-| SQLite | `PDS_MASTER_KEY` if set; otherwise generated once into `master.key` beside the database and reused |
+| Backend    | Behaviour                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------- |
+| PostgreSQL | `PDS_MASTER_KEY` is **required**; startup fails without it                                         |
+| SQLite     | `PDS_MASTER_KEY` if set; otherwise generated once into `master.key` beside the database and reused |
 
 The generated file is created with owner-only permissions, and the path is
 printed at startup:

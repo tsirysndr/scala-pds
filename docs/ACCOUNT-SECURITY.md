@@ -16,11 +16,11 @@ sign-in that opened it.
 Only a digest of the token is stored. The session progresses through three
 stages:
 
-| Stage | Meaning |
-| --- | --- |
-| `login` | anonymous; the identifier and password have not been accepted |
-| `factor` | the password was accepted and a second factor is outstanding |
-| `authenticated` | every factor passed; management actions are permitted |
+| Stage           | Meaning                                                       |
+| --------------- | ------------------------------------------------------------- |
+| `login`         | anonymous; the identifier and password have not been accepted |
+| `factor`        | the password was accepted and a second factor is outstanding  |
+| `authenticated` | every factor passed; management actions are permitted         |
 
 The token is rotated on every stage change and whenever a mutation raises the
 account's security epoch, so a captured cookie stops working as soon as the real

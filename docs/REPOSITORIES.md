@@ -41,12 +41,12 @@ revisions sort in commit order.
 
 ## Writing
 
-| Method | Behaviour |
-| --- | --- |
+| Method                          | Behaviour                                                       |
+| ------------------------------- | --------------------------------------------------------------- |
 | `com.atproto.repo.createRecord` | fails if the key exists; generates a TID key when none is given |
-| `com.atproto.repo.putRecord` | creates or replaces |
-| `com.atproto.repo.deleteRecord` | succeeds silently when the record is already absent |
-| `com.atproto.repo.applyWrites` | 1–200 writes in a single commit |
+| `com.atproto.repo.putRecord`    | creates or replaces                                             |
+| `com.atproto.repo.deleteRecord` | succeeds silently when the record is already absent             |
+| `com.atproto.repo.applyWrites`  | 1–200 writes in a single commit                                 |
 
 Each write is validated before it reaches the tree: the collection must be an
 NSID, the key a valid record key, the record an object whose `$type` matches the
@@ -132,12 +132,12 @@ pass, so it never holds a long transaction.
 
 ## Limits
 
-| Limit | Value |
-| --- | --- |
-| Record size | 64 KiB encoded |
-| Writes per commit | 200 |
-| Records per listing | 100 |
-| Blocks per `getBlocks` | 1000 |
-| CAR block size | 4 MiB |
-| Import archive | 256 MiB |
-| Nesting depth | 32 (JSON), 64 (CBOR) |
+| Limit                  | Value                |
+| ---------------------- | -------------------- |
+| Record size            | 64 KiB encoded       |
+| Writes per commit      | 200                  |
+| Records per listing    | 100                  |
+| Blocks per `getBlocks` | 1000                 |
+| CAR block size         | 4 MiB                |
+| Import archive         | 256 MiB              |
+| Nesting depth          | 32 (JSON), 64 (CBOR) |

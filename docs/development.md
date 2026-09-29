@@ -70,20 +70,20 @@ epoch-millisecond timestamps and text UUIDs, is identical.
 
 ## Layout
 
-| Path | Contents |
-| --- | --- |
-| `src/main/scala/pds/crypto` | encodings, hashing, scrypt, EC keys, JWT, AES-GCM sealing |
-| `src/main/scala/pds/protocol` | syntax, TID, DAG-CBOR, CID, MST, CAR, commits |
-| `src/main/scala/pds/storage` | configuration, dialect, pool, SQL helpers, migrations |
-| `src/main/scala/pds/identity` | DID documents, `did:plc`, resolution, outbound HTTP |
+| Path                          | Contents                                                      |
+| ----------------------------- | ------------------------------------------------------------- |
+| `src/main/scala/pds/crypto`   | encodings, hashing, scrypt, EC keys, JWT, AES-GCM sealing     |
+| `src/main/scala/pds/protocol` | syntax, TID, DAG-CBOR, CID, MST, CAR, commits                 |
+| `src/main/scala/pds/storage`  | configuration, dialect, pool, SQL helpers, migrations         |
+| `src/main/scala/pds/identity` | DID documents, `did:plc`, resolution, outbound HTTP           |
 | `src/main/scala/pds/accounts` | registration, sessions, tokens, app passwords, invites, email |
-| `src/main/scala/pds/repo` | repository persistence and commit application |
-| `src/main/scala/pds/firehose` | the event sequence and `subscribeRepos` |
-| `src/main/scala/pds/oauth` | scopes, DPoP, clients, PAR, interactions, tokens |
-| `src/main/scala/pds/security` | browser sessions, TOTP, the account interface routes |
-| `src/main/scala/pds/api` | XRPC endpoints, the proxy, rate limiting |
-| `frontend` | the React account and consent interface |
-| `docs` | these pages, which are also the published site |
+| `src/main/scala/pds/repo`     | repository persistence and commit application                 |
+| `src/main/scala/pds/firehose` | the event sequence and `subscribeRepos`                       |
+| `src/main/scala/pds/oauth`    | scopes, DPoP, clients, PAR, interactions, tokens              |
+| `src/main/scala/pds/security` | browser sessions, TOTP, the account interface routes          |
+| `src/main/scala/pds/api`      | XRPC endpoints, the proxy, rate limiting                      |
+| `frontend`                    | the React account and consent interface                       |
+| `docs`                        | these pages, which are also the published site                |
 
 ## This documentation
 

@@ -6,10 +6,10 @@ AppView.
 
 ## Endpoints
 
-| Method | Behaviour |
-| --- | --- |
+| Method                          | Behaviour                          |
+| ------------------------------- | ---------------------------------- |
 | `app.bsky.actor.getPreferences` | returns this account's preferences |
-| `app.bsky.actor.putPreferences` | replaces the whole set |
+| `app.bsky.actor.putPreferences` | replaces the whole set             |
 
 Both require an authenticated session with full privileges: an app password
 session is refused, because preferences can reveal moderation and content

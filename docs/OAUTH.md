@@ -6,10 +6,10 @@ consent screen that the account owner drives.
 
 ## Discovery
 
-| Path | Document |
-| --- | --- |
-| `/.well-known/oauth-authorization-server` | issuer, endpoints, supported scopes and algorithms |
-| `/.well-known/oauth-protected-resource` | the resource identifier and its authorization server |
+| Path                                      | Document                                             |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `/.well-known/oauth-authorization-server` | issuer, endpoints, supported scopes and algorithms   |
+| `/.well-known/oauth-protected-resource`   | the resource identifier and its authorization server |
 
 Both advertise `require_pushed_authorization_requests`, `S256` as the only code
 challenge method, `ES256` for DPoP, and `client_id_metadata_document_supported`.
@@ -93,10 +93,10 @@ client holds for the account — a stolen code cannot be used quietly.
 
 Access and refresh tokens are opaque 256-bit secrets stored only as digests:
 
-| Token | Lifetime | Notes |
-| --- | --- | --- |
-| access | 1 hour | `token_type: DPoP`, bound to the proof key |
-| refresh | 90 days | rotated on every use; the old row is deleted |
+| Token   | Lifetime | Notes                                        |
+| ------- | -------- | -------------------------------------------- |
+| access  | 1 hour   | `token_type: DPoP`, bound to the proof key   |
+| refresh | 90 days  | rotated on every use; the old row is deleted |
 
 `/oauth/revoke` accepts either token of a pair and is idempotent.
 
@@ -152,11 +152,11 @@ WWW-Authenticate: DPoP resource_metadata="https://pds.example.com/.well-known/oa
 
 `atproto` is mandatory and identifies the account. Beyond it:
 
-| Scope | Grants |
-| --- | --- |
-| `transition:generic` | read and write the repository and account data |
-| `transition:chat.bsky` | the `chat.bsky.*` methods |
-| `transition:email` | the account's email address |
+| Scope                  | Grants                                         |
+| ---------------------- | ---------------------------------------------- |
+| `transition:generic`   | read and write the repository and account data |
+| `transition:chat.bsky` | the `chat.bsky.*` methods                      |
+| `transition:email`     | the account's email address                    |
 
 Granular `repo:`, `rpc:`, `blob:`, `account:`, `identity:` and `include:`
 permissions are accepted and rendered on the consent screen. Method access is

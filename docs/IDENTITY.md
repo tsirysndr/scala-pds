@@ -160,13 +160,13 @@ scala-pds: did:plc:… (bob.example.com) signing-key: the document names did:key
 identity is read from the directory's log head, the cached document is dropped,
 and the drift is classified:
 
-| Kind | Meaning | `--repair` |
-| --- | --- | --- |
-| `handle` | the document names another handle | adopt it locally, if free, and emit `#identity` |
-| `endpoint` | the document names another PDS | deactivate the account here |
-| `absent` | the directory holds no operation for the DID | deactivate the account here |
-| `signing-key` | the document names a signing key this server does not hold | reported only |
-| `rotation-key` | this server's rotation key is no longer in the log | reported only |
+| Kind           | Meaning                                                    | `--repair`                                      |
+| -------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `handle`       | the document names another handle                          | adopt it locally, if free, and emit `#identity` |
+| `endpoint`     | the document names another PDS                             | deactivate the account here                     |
+| `absent`       | the directory holds no operation for the DID               | deactivate the account here                     |
+| `signing-key`  | the document names a signing key this server does not hold | reported only                                   |
+| `rotation-key` | this server's rotation key is no longer in the log         | reported only                                   |
 
 The last two cannot be repaired from here: whoever signed that change holds a key
 this server does not, which is exactly what a recovery key is for. The command

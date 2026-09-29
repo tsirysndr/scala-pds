@@ -6,11 +6,11 @@ stops serving it.
 
 ## Subjects
 
-| Subject type | Identified by | Effect while applied |
-| --- | --- | --- |
-| `com.atproto.admin.defs#repoRef` | `did` | the account cannot authenticate; API access returns `AccountTakedown` |
-| `com.atproto.repo.strongRef` | `uri` (an AT URI) | the record is omitted from listings and answers `RecordNotFound` |
-| `com.atproto.admin.defs#repoBlobRef` | `did` and `cid` | the blob answers `BlobNotFound` |
+| Subject type                         | Identified by     | Effect while applied                                                  |
+| ------------------------------------ | ----------------- | --------------------------------------------------------------------- |
+| `com.atproto.admin.defs#repoRef`     | `did`             | the account cannot authenticate; API access returns `AccountTakedown` |
+| `com.atproto.repo.strongRef`         | `uri` (an AT URI) | the record is omitted from listings and answers `RecordNotFound`      |
+| `com.atproto.admin.defs#repoBlobRef` | `did` and `cid`   | the blob answers `BlobNotFound`                                       |
 
 ## Applying and lifting
 

@@ -6,11 +6,11 @@ Lambda, anything that can talk to your mail provider.
 
 ## Configuration
 
-| Variable | Meaning |
-| --- | --- |
-| `PDS_EMAIL_ENDPOINT` | HTTPS endpoint that accepts the JSON message |
-| `PDS_EMAIL_TOKEN` | sent as `Authorization: Bearer <token>` |
-| `PDS_EMAIL_FROM` | sender address included in the payload; defaults to `noreply@<hostname>` |
+| Variable             | Meaning                                                                  |
+| -------------------- | ------------------------------------------------------------------------ |
+| `PDS_EMAIL_ENDPOINT` | HTTPS endpoint that accepts the JSON message                             |
+| `PDS_EMAIL_TOKEN`    | sent as `Authorization: Bearer <token>`                                  |
+| `PDS_EMAIL_FROM`     | sender address included in the payload; defaults to `noreply@<hostname>` |
 
 With no endpoint configured, every flow that needs mail refuses with
 `EmailUnavailable` instead of reporting a delivery that will not happen. That
@@ -28,15 +28,15 @@ factor, PLC operation signatures and `com.atproto.admin.sendEmail`.
 }
 ```
 
-| `purpose` | Sent when |
-| --- | --- |
-| `confirm-email` | the owner asked to confirm their address |
-| `update-email` | the owner asked to change their address |
-| `reset-password` | a password reset was requested |
-| `delete-account` | account deletion was requested |
-| `sign-in` | a second-factor code is needed to finish sign-in |
-| `plc-operation` | an identity operation needs confirmation |
-| `admin-notice` | an operator sent a message; carries `subject` and `content` instead of `token` |
+| `purpose`        | Sent when                                                                      |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `confirm-email`  | the owner asked to confirm their address                                       |
+| `update-email`   | the owner asked to change their address                                        |
+| `reset-password` | a password reset was requested                                                 |
+| `delete-account` | account deletion was requested                                                 |
+| `sign-in`        | a second-factor code is needed to finish sign-in                               |
+| `plc-operation`  | an identity operation needs confirmation                                       |
+| `admin-notice`   | an operator sent a message; carries `subject` and `content` instead of `token` |
 
 Your endpoint owns the wording. Any 2xx response marks the message sent;
 anything else is a failure. It should be idempotent on `purpose` and `to`,

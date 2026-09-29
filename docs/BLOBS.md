@@ -72,14 +72,14 @@ Setting `PDS_S3_BUCKET` moves them to an S3-compatible bucket instead, which is
 what a server of any size wants: the database stops carrying binary payloads,
 and the bucket can be served through a CDN.
 
-| Variable | Meaning |
-| --- | --- |
-| `PDS_S3_BUCKET` | the bucket; setting it selects the S3 backend |
-| `PDS_S3_REGION` | signing region |
-| `PDS_S3_ENDPOINT` | endpoint URL; defaults to `https://s3.<region>.amazonaws.com` |
-| `PDS_S3_ACCESS_KEY_ID` | access key |
-| `PDS_S3_SECRET_ACCESS_KEY` | secret key |
-| `PDS_S3_PATH_STYLE` | `false` for virtual-host addressing; path style by default |
+| Variable                   | Meaning                                                       |
+| -------------------------- | ------------------------------------------------------------- |
+| `PDS_S3_BUCKET`            | the bucket; setting it selects the S3 backend                 |
+| `PDS_S3_REGION`            | signing region                                                |
+| `PDS_S3_ENDPOINT`          | endpoint URL; defaults to `https://s3.<region>.amazonaws.com` |
+| `PDS_S3_ACCESS_KEY_ID`     | access key                                                    |
+| `PDS_S3_SECRET_ACCESS_KEY` | secret key                                                    |
+| `PDS_S3_PATH_STYLE`        | `false` for virtual-host addressing; path style by default    |
 
 Naming a bucket requires the region and both credentials; a partial set is a
 startup error rather than a silent fallback to the database. Requests are signed

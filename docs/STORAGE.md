@@ -41,12 +41,12 @@ used.
 
 Three placeholders and one clause differ:
 
-| Placeholder | PostgreSQL | SQLite |
-| --- | --- | --- |
-| `{{BLOB}}` | `bytea` | `blob` |
-| `{{JSON}}` | `jsonb` | `text` |
-| `{{ID_PK}}` | `bigserial PRIMARY KEY` | `integer PRIMARY KEY AUTOINCREMENT` |
-| `FOR UPDATE` | emitted | omitted |
+| Placeholder  | PostgreSQL              | SQLite                              |
+| ------------ | ----------------------- | ----------------------------------- |
+| `{{BLOB}}`   | `bytea`                 | `blob`                              |
+| `{{JSON}}`   | `jsonb`                 | `text`                              |
+| `{{ID_PK}}`  | `bigserial PRIMARY KEY` | `integer PRIMARY KEY AUTOINCREMENT` |
+| `FOR UPDATE` | emitted                 | omitted                             |
 
 Everything else is deliberately identical. Timestamps are `bigint` epoch
 milliseconds and UUIDs are `text` everywhere, which removes every timezone and
@@ -69,15 +69,15 @@ changed after it was applied”. Add a new file rather than editing an old one.
 
 ## Tables
 
-| Group | Tables |
-| --- | --- |
-| Accounts | `accounts`, `account_keys`, `handle_reservations`, `account_imports`, `account_recoveries` |
+| Group          | Tables                                                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Accounts       | `accounts`, `account_keys`, `handle_reservations`, `account_imports`, `account_recoveries`                                                                                     |
 | Authentication | `sessions`, `app_passwords`, `account_tokens`, `browser_sessions`, `account_totp`, `account_recovery_codes`, `account_webauthn_users`, `account_passkeys`, `webauthn_requests` |
-| Invites | `invite_codes`, `invite_uses` |
-| Repositories | `repo_roots`, `repo_blocks`, `records`, `record_blobs`, `blobs`, `blob_deletions` |
-| Federation | `repo_events` |
-| OAuth | `oauth_requests`, `oauth_interactions`, `oauth_codes`, `oauth_tokens`, `oauth_replay` |
-| Services | `account_preferences`, `identity_cache`, `email_outbox`, `plc_operations`, `service_token_replay` |
+| Invites        | `invite_codes`, `invite_uses`                                                                                                                                                  |
+| Repositories   | `repo_roots`, `repo_blocks`, `records`, `record_blobs`, `blobs`, `blob_deletions`                                                                                              |
+| Federation     | `repo_events`                                                                                                                                                                  |
+| OAuth          | `oauth_requests`, `oauth_interactions`, `oauth_codes`, `oauth_tokens`, `oauth_replay`                                                                                          |
+| Services       | `account_preferences`, `identity_cache`, `email_outbox`, `plc_operations`, `service_token_replay`                                                                              |
 
 Constraints do real work: account status is a `CHECK`ed enumeration, email token
 purposes are constrained, blob and block ownership cascades from the account, and

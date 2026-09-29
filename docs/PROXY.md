@@ -6,11 +6,11 @@ queries and signs them on the account's behalf.
 
 ## Choosing the upstream
 
-| Request | Target |
-| --- | --- |
-| `atproto-proxy: <did>#<service id>` | that service, resolved from the DID document |
+| Request                               | Target                                           |
+| ------------------------------------- | ------------------------------------------------ |
+| `atproto-proxy: <did>#<service id>`   | that service, resolved from the DID document     |
 | no header, `com.atproto.moderation.*` | `PDS_MOD_SERVICE_URL` with `PDS_MOD_SERVICE_DID` |
-| no header, anything else | `PDS_APPVIEW_URL` with `PDS_APPVIEW_DID` |
+| no header, anything else              | `PDS_APPVIEW_URL` with `PDS_APPVIEW_DID`         |
 
 The header must be a DID and a non-empty fragment. The DID is resolved and the
 matching `service` entry supplies the endpoint, so the client names *who* it

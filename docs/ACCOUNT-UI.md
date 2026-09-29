@@ -4,40 +4,40 @@
 settings and the OAuth consent screen. The server exposes exactly three asset
 paths, so the strict content security policy never needs to widen:
 
-| Path | Contents |
-| --- | --- |
-| `/account` | the HTML shell |
-| `/account/app.js` | the bundled application |
-| `/account/style.css` | the bundled stylesheet |
+| Path                 | Contents                |
+| -------------------- | ----------------------- |
+| `/account`           | the HTML shell          |
+| `/account/app.js`    | the bundled application |
+| `/account/style.css` | the bundled stylesheet  |
 
 ## Stack
 
-| Concern | Library |
-| --- | --- |
-| Rendering | React 19 |
-| Styling | Tailwind CSS 4 with a HeroUI theme plugin |
-| Components | HeroUI |
-| Local state | Jotai |
-| Server state | TanStack React Query |
-| Forms | React Hook Form |
-| Validation | Zod, through `@hookform/resolvers` |
-| Icons | Tabler Icons |
-| Build and tests | Vite, Vitest, Testing Library |
+| Concern         | Library                                   |
+| --------------- | ----------------------------------------- |
+| Rendering       | React 19                                  |
+| Styling         | Tailwind CSS 4 with a HeroUI theme plugin |
+| Components      | HeroUI                                    |
+| Local state     | Jotai                                     |
+| Server state    | TanStack React Query                      |
+| Forms           | React Hook Form                           |
+| Validation      | Zod, through `@hookform/resolvers`        |
+| Icons           | Tabler Icons                              |
+| Build and tests | Vite, Vitest, Testing Library             |
 
 The bundle loads no third-party resources at runtime: the theme stays on locally
 installed monospace fonts, because the account policy grants no `font-src`.
 
 ## Screens
 
-| Screen | When it shows |
-| --- | --- |
-| Sign in | the session stage is `login` |
-| Create account | the visitor chose signup, or a client asked for `prompt=create`, and signup is enabled |
-| Confirm it's you | the stage is `factor`; an authenticator or emailed code is outstanding |
-| Authorize access | an OAuth flow is attached to an authenticated owner |
-| Continue to the application | an OAuth flow exists and the owner is already signed in |
-| Your account | an authenticated owner with no OAuth flow in progress |
-| Message | a flow expired, or the session could not load |
+| Screen                      | When it shows                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| Sign in                     | the session stage is `login`                                                           |
+| Create account              | the visitor chose signup, or a client asked for `prompt=create`, and signup is enabled |
+| Confirm it's you            | the stage is `factor`; an authenticator or emailed code is outstanding                 |
+| Authorize access            | an OAuth flow is attached to an authenticated owner                                    |
+| Continue to the application | an OAuth flow exists and the owner is already signed in                                |
+| Your account                | an authenticated owner with no OAuth flow in progress                                  |
+| Message                     | a flow expired, or the session could not load                                          |
 
 The account settings screen manages app passwords, authenticator enrollment with
 its recovery codes, the email second factor, the account password, and
