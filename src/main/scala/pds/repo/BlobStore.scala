@@ -15,8 +15,8 @@ import pds.storage.{S3, Sql}
   * on a remote call.
   */
 object BlobStore:
-  def objectKey(did: String, cid: Cid): String =
-    s"blobs/${did.replace(':', '_')}/$cid"
+  def objectKey(prefix: String, did: String, cid: Cid): String =
+    s"$prefix${did.replace(':', '_')}/$cid"
 
   def store(
       env: Env, did: String, cid: Cid, mimeType: String, bytes: Array[Byte]
@@ -30,7 +30,7 @@ object BlobStore:
           }
         }
       case Some(s3) =>
-        val key = objectKey(did, cid)
+        val key = objectKey(s3.prefix, did, cid)
         s3.put(key, mimeType, bytes).flatMap {
           case Left(reason) =>
             IO.raiseError(XrpcError.named(org.http4s.Status.BadGateway, "BlobStoreFailed",

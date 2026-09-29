@@ -15,7 +15,8 @@ final case class S3Config(
     endpoint: String,
     accessKeyId: String,
     secretAccessKey: String,
-    pathStyle: Boolean
+    pathStyle: Boolean,
+    prefix: String
 ):
   override def toString: String = s"S3Config($bucket,$region,$endpoint,<redacted>)"
 
@@ -43,8 +44,14 @@ object S3Config:
             .toRight("PDS_S3_ACCESS_KEY_ID is required when PDS_S3_BUCKET is set")
           secret <- env.get("PDS_S3_SECRET_ACCESS_KEY").filter(_.nonEmpty)
             .toRight("PDS_S3_SECRET_ACCESS_KEY is required when PDS_S3_BUCKET is set")
-        yield Some(S3Config(bucket, region, endpoint.stripSuffix("/"), key, secret,
-          pathStyle = env.get("PDS_S3_PATH_STYLE").forall(_ != "false")))
+        yield
+          // A bucket can be shared with another service, so the key space this
+          // server owns is configurable and everything it writes lives under it.
+          val prefix = env.get("PDS_S3_PREFIX").map(_.trim).filter(_.nonEmpty)
+            .map(value => value.stripPrefix("/").stripSuffix("/") + "/")
+            .getOrElse("blobs/")
+          Some(S3Config(bucket, region, endpoint.stripSuffix("/"), key, secret,
+            pathStyle = env.get("PDS_S3_PATH_STYLE").forall(_ != "false"), prefix = prefix))
 
 /** A minimal S3 client: PUT, GET and DELETE of whole objects, signed with
   * AWS Signature Version 4. Blobs are content-addressed and written once, so
@@ -54,6 +61,7 @@ final class S3(config: S3Config, client: Client[IO]):
   import S3.*
 
   def bucket: String = config.bucket
+  def prefix: String = config.prefix
 
   def put(key: String, contentType: String, body: Array[Byte]): IO[Either[String, Unit]] =
     send(Method.PUT, key, Some(body), Some(contentType)).map(_.map(_ => ()))

@@ -20,7 +20,8 @@ class S3Suite extends munit.CatsEffectSuite:
     endpoint = "https://objects.example.com",
     accessKeyId = "AKIAIOSFODNN7EXAMPLE",
     secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    pathStyle = true
+    pathStyle = true,
+    prefix = "blobs/"
   )
 
   /** An in-memory bucket that records the signed requests it received. */
@@ -221,4 +222,29 @@ class S3Suite extends munit.CatsEffectSuite:
         assertEquals(row.flatMap(_._2).map(_.toVector), Some(bytes.toVector))
         assertEquals(swept, 0)
     }
+  }
+
+  test("the key prefix partitions a bucket shared with another service") {
+    def prefixOf(env: Map[String, String]) =
+      S3Config.fromEnv(env ++ Map(
+        "PDS_S3_BUCKET" -> "shared",
+        "PDS_S3_REGION" -> "auto",
+        "PDS_S3_ENDPOINT" -> "https://objects.example.com",
+        "PDS_S3_ACCESS_KEY_ID" -> "key",
+        "PDS_S3_SECRET_ACCESS_KEY" -> "secret")).toOption.flatten.get.prefix
+
+    assertEquals(prefixOf(Map.empty), "blobs/")
+    // However it is written, it ends up as one trailing slash and no leading one.
+    assertEquals(prefixOf(Map("PDS_S3_PREFIX" -> "scala-pds/blobs")), "scala-pds/blobs/")
+    assertEquals(prefixOf(Map("PDS_S3_PREFIX" -> "/scala-pds/blobs/")), "scala-pds/blobs/")
+    assertEquals(prefixOf(Map("PDS_S3_PREFIX" -> "  ")), "blobs/")
+
+    // Keys land under it, and stay distinct per account.
+    val cid = pds.protocol.Cid.ofRaw("an avatar".getBytes("UTF-8"))
+    assertEquals(
+      pds.repo.BlobStore.objectKey("scala-pds/blobs/", "did:plc:abc", cid),
+      s"scala-pds/blobs/did_plc_abc/$cid")
+    assertEquals(
+      pds.repo.BlobStore.objectKey("blobs/", "did:web:alice.example.com", cid),
+      s"blobs/did_web_alice.example.com/$cid")
   }
