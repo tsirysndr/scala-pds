@@ -48,6 +48,7 @@ Browse these pages as a website at <https://scala-pds.tsirysndr.deno.net/>
 - [Deployment](docs/DEPLOYMENT.md) — public hostname, TLS, systemd, backups
 - [Storage backends](docs/STORAGE.md) — SQLite, PostgreSQL, the dialect layer, migrations
 - [Master key](docs/MASTER-KEY.md) — what it seals and how to handle it
+- [Backup and restore](docs/BACKUP.md) — checksummed snapshots and the recovery drill
 - [Admin and invites](docs/ADMIN.md) — administrative APIs and invite codes
 - [Moderation](docs/MODERATION.md) — account, record and blob takedowns
 - [Email delivery](docs/EMAIL.md) — the outbox contract

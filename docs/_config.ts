@@ -44,6 +44,7 @@ const sidebar = [
     items: [
       { url: "/deployment/", label: "Deployment" },
       { url: "/storage/", label: "Storage backends" },
+      { url: "/backup/", label: "Backup & restore" },
       { url: "/master-key/", label: "Master key" },
       { url: "/admin/", label: "Admin & invites" },
       { url: "/moderation/", label: "Moderation" },

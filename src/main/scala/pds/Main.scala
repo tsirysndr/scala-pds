@@ -13,7 +13,7 @@ import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
-import pds.tools.{AccountRecovery, MasterKeyRotation}
+import pds.tools.{AccountRecovery, Backup, MasterKeyRotation}
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -24,16 +24,24 @@ object Main extends IOApp:
         .left.map(new IllegalArgumentException(_)))
       database <- IO.fromEither(DatabaseConfig.fromEnv(env)
         .left.map(new IllegalArgumentException(_)))
-      sealing <- masterKey(env, database)
+      // Commands that never touch a sealed secret do not need the master key,
+      // and must not create one as a side effect of running.
       code <- arguments match
-        case Nil | "serve" :: Nil     => serve(config, database, sealing, env)
-        case "rotate-master-key" :: _ => rotateMasterKey(database, sealing, env)
-        case "verify-master-key" :: _ => verifyMasterKey(database, sealing)
-        case "recover-account" :: rest => recoverAccount(config, database, sealing, env, rest)
+        case "backup" :: rest        => backup(database, rest)
+        case "verify-backup" :: rest => verifyBackup(rest)
+        case Nil | "serve" :: Nil =>
+          masterKey(env, database).flatMap(serve(config, database, _, env))
+        case "rotate-master-key" :: _ =>
+          masterKey(env, database).flatMap(rotateMasterKey(database, _, env))
+        case "verify-master-key" :: _ =>
+          masterKey(env, database).flatMap(verifyMasterKey(database, _))
+        case "recover-account" :: rest =>
+          masterKey(env, database).flatMap(recoverAccount(config, database, _, env, rest))
         case other =>
           IO.println(s"scala-pds: unknown command ${other.mkString(" ")}") *>
             IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key |" +
-              " recover-account <identifier> <reference>]").as(ExitCode(2))
+              " recover-account <identifier> <reference> | backup <path> |" +
+              " verify-backup <path>]").as(ExitCode(2))
     yield code
 
   /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
@@ -89,6 +97,35 @@ object Main extends IOApp:
       case _ =>
         IO.println("usage: scala-pds recover-account <handle|did|email> <reference>")
           .as(ExitCode(2))
+
+  private def backup(database: DatabaseConfig, arguments: List[String]): IO[ExitCode] =
+    arguments.headOption match
+      case None => IO.println("usage: scala-pds backup <path>").as(ExitCode(2))
+      case Some(path) =>
+        Backup.create(database, java.nio.file.Paths.get(path)).flatMap { manifest =>
+          IO.println(s"scala-pds: wrote ${manifest.file} (${manifest.bytes} bytes)") *>
+            IO.println(s"scala-pds: sha256 ${manifest.checksum}") *>
+            IO.println(s"scala-pds: ${manifest.counts.getOrElse("accounts", 0L)} account(s), " +
+              s"${manifest.counts.getOrElse("records", 0L)} record(s), " +
+              s"${manifest.counts.getOrElse("blobs", 0L)} blob(s)") *>
+            IO.println("scala-pds: back up the master key separately; it is not in this file")
+              .as(ExitCode.Success)
+        }.handleErrorWith(error =>
+          IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error))
+
+  private def verifyBackup(arguments: List[String]): IO[ExitCode] =
+    arguments.headOption match
+      case None => IO.println("usage: scala-pds verify-backup <path>").as(ExitCode(2))
+      case Some(path) =>
+        Backup.verify(java.nio.file.Paths.get(path)).flatMap { manifest =>
+          IO.println(s"scala-pds: ${manifest.file} is readable, " +
+            s"${manifest.migrations} migration(s) applied") *>
+            IO.println(s"scala-pds: sha256 ${manifest.checksum}") *>
+            IO.println(manifest.counts.toVector.sortBy(_._1)
+              .map((table, count) => s"  $table $count").mkString("\n"))
+              .as(ExitCode.Success)
+        }.handleErrorWith(error =>
+          IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error))
 
   private def verifyMasterKey(database: DatabaseConfig, key: Sealing): IO[ExitCode] =
     Database.resource(database).use { db =>

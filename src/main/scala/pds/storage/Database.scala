@@ -42,6 +42,20 @@ object Database:
   def resource(config: DatabaseConfig): Resource[IO, Database] =
     Resource.make(IO.blocking(open(config)))(database => IO.blocking(database.source.close()))
 
+  /** Opens a SQLite file without writing to it, so inspecting a backup does
+    * not change the bytes that were checksummed.
+    */
+  def readOnlySqlite(path: java.nio.file.Path): Resource[IO, Database] =
+    Resource.make(IO.blocking {
+      val hikari = new HikariConfig()
+      hikari.setJdbcUrl(s"jdbc:sqlite:$path")
+      hikari.setMaximumPoolSize(1)
+      hikari.setPoolName("pds-readonly")
+      hikari.setReadOnly(true)
+      hikari.addDataSourceProperty("open_mode", "1")
+      new Database(new HikariDataSource(hikari), Dialect(Backend.Sqlite))
+    })(database => IO.blocking(database.source.close()))
+
   private def open(config: DatabaseConfig): Database =
     if config.backend == Backend.Sqlite then prepareSqliteDirectory(config.url)
     val hikari = new HikariConfig()

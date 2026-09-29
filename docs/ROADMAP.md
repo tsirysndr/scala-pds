@@ -50,6 +50,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     a structured access log.
 17. **Operator recovery** — an audited host command that clears an account's
     second factors without touching its password.
+18. **Backups** — checksummed SQLite snapshots taken while running, verified by
+    re-reading them.
 
 ## Next
 
@@ -77,7 +79,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Operations
 
-- Checksummed backup and restore tooling, and a documented recovery drill.
 - A migration driver that runs the whole [account migration](/migration/)
   sequence rather than leaving it to the client.
 

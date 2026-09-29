@@ -16,7 +16,7 @@ import pds.storage.{Database, DatabaseConfig, Migrations, S3}
 object TestEnv:
   val adminPassword = "admin-password-1234"
 
-  final case class Harness(env: Env, app: HttpApp[IO]):
+  final case class Harness(env: Env, app: HttpApp[IO], databaseConfig: DatabaseConfig):
     def run(request: Request[IO]): IO[Response[IO]] = app.run(request)
 
     def json(request: Request[IO]): IO[(Status, Json)] =
@@ -44,7 +44,8 @@ object TestEnv:
     ) ++ overrides
     for
       directory <- Resource.eval(IO.blocking(Files.createTempDirectory("pds-harness")))
-      database <- Database.resource(DatabaseConfig.sqliteAt(directory.resolve("pds.sqlite3")))
+      databaseConfig = DatabaseConfig.sqliteAt(directory.resolve("pds.sqlite3"))
+      database <- Database.resource(databaseConfig)
       _ <- Resource.eval(Migrations.run(database))
       config <- Resource.eval(IO.fromEither(
         ServerConfig.fromEnv(settings).left.map(new IllegalArgumentException(_))))
@@ -60,7 +61,7 @@ object TestEnv:
         if overrides.contains("PDS_RATE_LIMIT_PER_MINUTE") then config.rateLimitPerMinute
         else 100000))
       metrics <- Resource.eval(Metrics.create)
-    yield Harness(env, PdsApp(env, client, limiter, None, metrics))
+    yield Harness(env, PdsApp(env, client, limiter, None, metrics), databaseConfig)
 
   def post(path: String, body: Json): Request[IO] =
     Request[IO](Method.POST, Uri.unsafeFromString(path)).withEntity(body)

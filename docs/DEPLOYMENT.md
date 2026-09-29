@@ -170,17 +170,14 @@ the limit rather than the service.
 
 ## Backups
 
-Back up three things:
+```sh
+java -jar scala-pds.jar backup /srv/backups/pds-$(date +%F).sqlite3
+java -jar scala-pds.jar verify-backup /srv/backups/pds-$(date +%F).sqlite3
+```
 
-1. the **master key** — without it, stored signing keys and TOTP secrets are
-   unreadable and accounts cannot be recovered;
-2. the **database** — `pg_dump` for PostgreSQL, or the SQLite file plus its `-wal`
-   sidecar taken with `sqlite3 … ".backup"` rather than a plain copy;
-3. the **configuration**, so a restore reproduces the same public URL and handle
-   domain.
-
-Test a restore: bring a copy up with the same master key and public URL, then
-confirm `com.atproto.sync.getRepo` still verifies for an account.
+Back up the master key and the configuration separately from the database, and
+run the restore drill rather than assuming it works. See [backup and
+restore](/backup/).
 
 ## Resource notes
 
