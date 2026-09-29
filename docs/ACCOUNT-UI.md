@@ -62,6 +62,11 @@ POST /account/action/logout
 POST /account/action/app-passwords/create { name, privileged }
 POST /account/action/app-passwords/revoke { name }
 POST /account/action/oauth/revoke         { id }
+POST /account/action/passkeys/begin        { name }
+POST /account/action/passkeys/finish       { id, response }
+POST /account/action/passkeys/remove       { id }
+POST /account/action/login/passkey/begin   { identifier }
+POST /account/action/login/passkey/finish  { id, response }
 POST /account/action/totp/begin
 POST /account/action/totp/confirm         { code }
 POST /account/action/totp/disable         { code }

@@ -87,7 +87,8 @@ cannot be replayed inside its window.
 | Outbound request timeout | 15 seconds |
 | Idle connection timeout | 75 seconds |
 
-Rate-limit counters are in-process, so each instance enforces its own share.
+Rate-limit counters are in-process unless `PDS_REDIS_URL` is set, in which case
+the window is shared and the limit is the total across every instance.
 
 ## Firehose
 

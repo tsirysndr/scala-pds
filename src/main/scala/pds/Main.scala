@@ -6,11 +6,11 @@ import java.nio.file.{Files, Path, Paths}
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import pds.accounts.Email
-import pds.api.RateLimit
+import pds.api.{Counters, RateLimit}
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
-import pds.storage.{Backend, Database, DatabaseConfig, Migrations, S3, S3Config, Sql}
+import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
 import pds.tools.MasterKeyRotation
 import scala.concurrent.duration.*
 
@@ -75,11 +75,14 @@ object Main extends IOApp:
       environment: Map[String, String]
   ): IO[ExitCode] =
     val resources = for
+      redis <- Resource.eval(IO.fromEither(RedisConfig.fromEnv(environment)
+        .left.map(new IllegalArgumentException(_))))
       database <- Database.resource(databaseConfig)
       client <- EmberClientBuilder.default[IO].withTimeout(15.seconds).build
-    yield (database, client)
+      counters <- Counters.resource(redis)
+    yield (database, client, counters)
 
-    resources.use { (database, client) =>
+    resources.use { (database, client, counters) =>
       val allowPrivate = !config.secure ||
         environment.get("PDS_ALLOW_PRIVATE_NETWORK").contains("true")
       val net = new Net(client, allowPrivate)
@@ -94,11 +97,12 @@ object Main extends IOApp:
         _ <- IO.println(s"scala-pds: ${databaseConfig.backend} storage, " +
           s"${applied.length} migration(s) applied" +
           blobs.fold("")(store => s", blobs in ${store.bucket}"))
-        limiter <- RateLimit.create(config.rateLimitPerMinute)
+        limiter = RateLimit(counters, config.rateLimitPerMinute)
         _ <- requestCrawl(env).start
         _ <- background(env).start
         _ <- IO.println(s"scala-pds: listening on ${config.host}:${config.port} " +
-          s"as ${config.publicUrl}")
+          s"as ${config.publicUrl}, rate limits " +
+          (if counters.shared then "shared through Redis" else "per instance"))
         exit <- EmberServerBuilder.default[IO]
           .withHost(config.host)
           .withPort(config.port)

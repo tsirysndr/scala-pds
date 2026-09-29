@@ -54,7 +54,10 @@ object TestEnv:
       schemas <- Resource.eval(
         lexicons.fold(Schemas.network(net, identity))(Schemas.create))
       env = Env(config, database, sealing, net, identity, schemas, blobs)
-      limiter <- Resource.eval(RateLimit.create(100000))
+      // Tests are not rate limited unless one asks to be.
+      limiter <- Resource.eval(RateLimit.create(
+        if overrides.contains("PDS_RATE_LIMIT_PER_MINUTE") then config.rateLimitPerMinute
+        else 100000))
     yield Harness(env, PdsApp(env, client, limiter, None))
 
   def post(path: String, body: Json): Request[IO] =

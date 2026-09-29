@@ -29,6 +29,7 @@ lazy val root = (project in file("."))
       "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.2",
       "com.google.guava" % "guava" % "33.4.0-jre",
       "dnsjava" % "dnsjava" % "3.6.3",
+      "redis.clients" % "jedis" % "5.2.0",
       "org.slf4j" % "slf4j-simple" % "2.0.17",
       "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test
     ),

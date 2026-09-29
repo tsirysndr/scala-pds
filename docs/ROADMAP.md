@@ -43,6 +43,9 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     with a durable deletion queue.
 13. **Retention** — a bounded firehose window and block garbage collection that
     never touches a reachable block.
+14. **Passkeys** — WebAuthn registration and sign-in, verified end to end
+    against a virtual authenticator.
+15. **Shared counters** — optional Redis-backed rate-limit windows.
 
 ## Next
 
@@ -61,7 +64,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Storage and scale
 
-- Shared rate-limit counters (Redis), so several instances enforce one budget.
 
 ### Key custody
 
@@ -71,8 +73,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Account security
 
-- WebAuthn passkeys, as a second factor and as a primary credential.
-- Authenticator recovery that an operator can perform without database access.
+- Authenticator and passkey recovery that an operator can perform without
+  database access.
 
 ### Operations
 

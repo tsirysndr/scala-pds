@@ -72,6 +72,15 @@ explicitly. See [the master key](/master-key/).
 Setting *any* `PDS_DATABASE_*` variable selects PostgreSQL and then requires the
 URL, user and password together. See [storage backends](/storage/).
 
+## Shared counters
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PDS_REDIS_URL` | unset | `redis://` or `rediss://` URL; setting it shares rate-limit windows across instances |
+| `PDS_REDIS_POOL_SIZE` | `8` | pooled connections, 1–100 |
+
+Without it, each instance counts on its own. See [deployment](/deployment/).
+
 ## Services
 
 | Variable | Default | Meaning |

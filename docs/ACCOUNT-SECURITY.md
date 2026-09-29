@@ -70,6 +70,29 @@ five-minute window return `RateLimitExceeded`.
 Once confirmed, password sign-in stops at the `factor` stage until a code — or a
 recovery code, which is consumed — is presented.
 
+## Passkeys
+
+WebAuthn credentials work both as a second factor and as a primary sign-in
+method. They need a secure context, so they are offered on an HTTPS origin or on
+loopback; the session view reports `passkeys-available` accordingly.
+
+The relying party is the public hostname, so a credential registered here cannot
+be replayed against another origin. Ceremony state is stored server-side, bound
+to the browser session that started it and single use:
+
+1. `passkeys/begin` names the credential and returns creation options.
+2. `passkeys/finish` verifies the attestation and stores the credential id,
+   its COSE public key, its signature counter and its transports.
+3. `passkeys/remove` deletes one by id.
+
+Signing in is `login/passkey/begin` with an identifier, then
+`login/passkey/finish` with the assertion. A correctly signed assertion for a
+*different* origin, an assertion signed by a different key, and an assertion
+completed by a browser other than the one that started the ceremony are all
+refused. A malformed response is a rejection, never a server fault.
+
+Registration is capped at twenty credentials per account.
+
 ## Email second factor
 
 When email delivery is configured and the address is confirmed, `email/enable`
@@ -89,6 +112,7 @@ the owner is not signed out of the page they are working in.
 
 The authenticated view lists:
 
+- passkeys, with their names and when each was last used;
 - app passwords, with their names, privilege and creation dates;
 - connected OAuth applications with their granted permissions, each revocable
   individually;

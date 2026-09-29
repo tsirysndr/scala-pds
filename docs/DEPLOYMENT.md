@@ -113,9 +113,27 @@ seconds.
 ## Rate limiting
 
 `PDS_RATE_LIMIT_PER_MINUTE` (300 by default) is a per-address fixed window, keyed
-on `X-Forwarded-For` when present. Exceeding it returns `RateLimitExceeded` with
-`Retry-After: 60`. Counters are in-process: several instances each enforce their
-own share, so divide the intended total by the instance count.
+on the first hop of `X-Forwarded-For` when present. Exceeding it returns
+`RateLimitExceeded` with `Retry-After: 60`.
+
+Counters are in-process by default, so several instances each enforce their own
+share. Pointing `PDS_REDIS_URL` at a shared Redis makes the window shared
+instead, and the configured limit becomes the total across every instance:
+
+```sh
+export PDS_REDIS_URL=redis://cache.internal:6379
+export PDS_REDIS_POOL_SIZE=8    # optional, 1-100
+```
+
+Startup states which it is:
+
+```
+scala-pds: listening on 0.0.0.0:3000 as https://pds.example.com, rate limits shared through Redis
+```
+
+A Redis that becomes unreachable does not fail requests: the limiter falls back
+to its in-process counters for the duration, so an outage in the cache degrades
+the limit rather than the service.
 
 ## Backups
 
