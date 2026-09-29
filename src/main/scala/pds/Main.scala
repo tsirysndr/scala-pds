@@ -3,7 +3,7 @@ package pds
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import io.circe.Json
 import java.nio.file.{Files, Path, Paths}
-import org.http4s.HttpApp
+import org.http4s.{HttpApp, Uri}
 import org.http4s.client.Client
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
@@ -13,7 +13,8 @@ import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
-import pds.tools.{AccountRecovery, Backup, KeyRotation, MasterKeyRotation}
+import pds.tools.{AccountRecovery, Backup, KeyRotation, MasterKeyRotation, Migration,
+  MigrationPlan}
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -28,6 +29,7 @@ object Main extends IOApp:
       // and must not create one as a side effect of running.
       code <- arguments match
         case "backup" :: rest        => backup(database, rest)
+        case "migrate" :: rest       => migrate(config, rest)
         case "verify-backup" :: rest => verifyBackup(rest)
         case Nil | "serve" :: Nil =>
           masterKey(env, database).flatMap(serve(config, database, _, env))
@@ -44,7 +46,7 @@ object Main extends IOApp:
             IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key |" +
               " recover-account <identifier> <reference> |" +
               " rotate-account-keys <identifier> [signing|rotation|both] |" +
-              " backup <path> | verify-backup <path>]").as(ExitCode(2))
+              " backup <path> | verify-backup <path> | migrate <flags>]").as(ExitCode(2))
     yield code
 
   /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
@@ -142,6 +144,44 @@ object Main extends IOApp:
       case _ =>
         IO.println("usage: scala-pds rotate-account-keys <identifier> [signing|rotation|both]")
           .as(ExitCode(2))
+
+  private val migrateUsage =
+    "usage: scala-pds migrate --from <url> --identifier <handle|did|email> --password <password>" +
+      " --handle <new handle> --email <email> [--to <url>] [--new-password <password>]" +
+      " [--invite-code <code>] [--plc-token <code>]"
+
+  /** Runs a whole account migration from another server into this one. */
+  private def migrate(config: ServerConfig, arguments: List[String]): IO[ExitCode] =
+    val flags = arguments.sliding(2, 2).collect {
+      case List(name, value) if name.startsWith("--") => name.drop(2) -> value
+    }.toMap
+    def required(name: String): Either[String, String] =
+      flags.get(name).filter(_.nonEmpty).toRight(s"--$name is required")
+    def url(name: String, value: String): Either[String, Uri] =
+      Uri.fromString(value).left.map(_ => s"--$name is not a URL")
+    val plan = for
+      source <- required("from").flatMap(url("from", _))
+      destination <- url("to", flags.getOrElse("to", config.publicUrl))
+      identifier <- required("identifier")
+      password <- required("password")
+      handle <- required("handle")
+      email <- required("email")
+    yield MigrationPlan(source, destination, identifier, password, handle, email,
+      flags.getOrElse("new-password", password), flags.get("invite-code"), flags.get("plc-token"))
+    plan match
+      case Left(message) =>
+        IO.println(s"scala-pds: $message") *> IO.println(migrateUsage).as(ExitCode(2))
+      case Right(value) =>
+        EmberClientBuilder.default[IO].withTimeout(5.minutes).build.use { client =>
+          Migration.run(client, value, line => IO.println(s"scala-pds: $line")).flatMap { report =>
+            IO.println(s"scala-pds: ${report.did} now holds ${report.records} record(s), " +
+              s"${report.blobs} transferred blob(s) and ${report.preferences} preference group(s)") *>
+              IO.println(s"scala-pds: identity ${report.identity}, " +
+                s"activated=${report.activated}").as(
+                if report.activated then ExitCode.Success else ExitCode(3))
+          }
+        }.handleErrorWith(error =>
+          IO.println(s"scala-pds: migration stopped: ${error.getMessage}").as(ExitCode.Error))
 
   private def backup(database: DatabaseConfig, arguments: List[String]): IO[ExitCode] =
     arguments.headOption match
