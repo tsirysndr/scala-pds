@@ -70,7 +70,7 @@ HTTP Basic, or a scoped service token from `PDS_MOD_SERVICE_DID`).
 
 | Method | Verb | Auth | Notes |
 | --- | --- | --- | --- |
-| `getRepo` | GET | none | CARv1, `Atproto-Repo-Rev` |
+| `getRepo` | GET | none | CARv1, `Atproto-Repo-Rev`; `since` returns a diff |
 | `getRepoStatus` | GET | none | active flag, status, revision |
 | `getLatestCommit` | GET | none | |
 | `getRecord` | GET | none | inclusion or exclusion proof as CAR |

@@ -88,6 +88,11 @@ The archive is produced incrementally: the tree walk collects block
 *identifiers*, then a held connection reads and writes one block at a time, so
 the server's memory does not scale with repository size.
 
+`since=<rev>` returns a diff instead: the same root and commit block, but only
+the blocks a revision after `rev` introduced. Every block is stored with the
+revision that created it, so the filter is exact — a consumer that already holds
+everything up to `rev` gets what it is missing and nothing else.
+
 `com.atproto.sync.getRecord` returns a proof: the commit, the tree nodes on the
 path to the key, and the record itself when it exists — enough to verify
 inclusion, or exclusion, against the signed root.
