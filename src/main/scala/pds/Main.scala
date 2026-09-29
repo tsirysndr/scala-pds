@@ -3,6 +3,8 @@ package pds
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import io.circe.Json
 import java.nio.file.{Files, Path, Paths}
+import org.http4s.HttpApp
+import org.http4s.client.Client
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import pds.accounts.Email
@@ -11,7 +13,7 @@ import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, RedisConfig, S3, S3Config, Sql}
-import pds.tools.MasterKeyRotation
+import pds.tools.{AccountRecovery, MasterKeyRotation}
 import scala.concurrent.duration.*
 
 object Main extends IOApp:
@@ -27,10 +29,11 @@ object Main extends IOApp:
         case Nil | "serve" :: Nil     => serve(config, database, sealing, env)
         case "rotate-master-key" :: _ => rotateMasterKey(database, sealing, env)
         case "verify-master-key" :: _ => verifyMasterKey(database, sealing)
+        case "recover-account" :: rest => recoverAccount(config, database, sealing, env, rest)
         case other =>
           IO.println(s"scala-pds: unknown command ${other.mkString(" ")}") *>
-            IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key]")
-              .as(ExitCode(2))
+            IO.println("usage: scala-pds [serve | rotate-master-key | verify-master-key |" +
+              " recover-account <identifier> <reference>]").as(ExitCode(2))
     yield code
 
   /** Offline re-encryption of every stored secret under PDS_NEW_MASTER_KEY. */
@@ -57,6 +60,35 @@ object Main extends IOApp:
             IO.println(s"scala-pds: rotation failed, nothing was changed: ${error.getMessage}")
               .as(ExitCode.Error)
           }
+
+  /** Clears an account's second factors so its owner can sign in again. */
+  private def recoverAccount(
+      config: ServerConfig,
+      database: DatabaseConfig,
+      sealing: Sealing,
+      environment: Map[String, String],
+      arguments: List[String]
+  ): IO[ExitCode] =
+    arguments match
+      case identifier :: reference :: _ =>
+        Database.resource(database).use { db =>
+          for
+            _ <- Migrations.run(db)
+            schemas <- Schemas.offline
+            net = new Net(Client.fromHttpApp(HttpApp.notFound[IO]), allowPrivate = false)
+            env = Env(config, db, sealing, net, new Resolver(net, db, config), schemas)
+            summary <- AccountRecovery.run(env, identifier, reference)
+            _ <- IO.println(s"scala-pds: recovered ${summary.handle} (${summary.did})")
+            _ <- IO.println(s"scala-pds: removed authenticator=${summary.authenticator} " +
+              s"recoveryCodes=${summary.recoveryCodes} passkeys=${summary.passkeys}")
+            _ <- IO.println(s"scala-pds: security epoch is now ${summary.epoch}; " +
+              "every session and OAuth token for the account has ended")
+          yield ExitCode.Success
+        }.handleErrorWith(error =>
+          IO.println(s"scala-pds: ${error.getMessage}").as(ExitCode.Error))
+      case _ =>
+        IO.println("usage: scala-pds recover-account <handle|did|email> <reference>")
+          .as(ExitCode(2))
 
   private def verifyMasterKey(database: DatabaseConfig, key: Sealing): IO[ExitCode] =
     Database.resource(database).use { db =>

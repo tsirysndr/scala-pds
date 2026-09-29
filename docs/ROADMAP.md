@@ -48,6 +48,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 15. **Shared counters** — optional Redis-backed rate-limit windows.
 16. **Observability** — Prometheus metrics behind administrator credentials and
     a structured access log.
+17. **Operator recovery** — an audited host command that clears an account's
+    second factors without touching its password.
 
 ## Next
 
@@ -72,11 +74,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 - Managed signing and rotation key rotation, published through the directory.
 - Externally signed PLC recovery forks, and reconciliation when a directory
   changes outside this server.
-
-### Account security
-
-- Authenticator and passkey recovery that an operator can perform without
-  database access.
 
 ### Operations
 

@@ -10,7 +10,8 @@ import scala.io.Source
   */
 object Migrations:
   private val files = Vector(
-    "001-baseline.sql", "002-blob-backends.sql", "003-passkeys.sql")
+    "001-baseline.sql", "002-blob-backends.sql", "003-passkeys.sql",
+    "004-account-recovery.sql")
 
   def run(database: Database): IO[Vector[Int]] =
     database.transact { connection =>

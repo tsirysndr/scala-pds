@@ -58,6 +58,21 @@ Takedowns of accounts, records and blobs use
 `com.atproto.admin.getSubjectStatus` and `updateSubjectStatus`. See
 [moderation](/moderation/).
 
+## Host commands
+
+Some acts are deliberately not reachable over HTTP, because they need the
+database rather than an API credential. They run on the host from the same jar:
+
+| Command | Purpose |
+| --- | --- |
+| `serve` | run the server; the default |
+| `rotate-master-key` | re-encrypt every sealed secret under `PDS_NEW_MASTER_KEY` |
+| `verify-master-key` | check every sealed value opens, without writing |
+| `recover-account <identifier> <reference>` | clear an account's second factors |
+
+See [the master key](/master-key/) and [account
+security](/account-security/).
+
 ## Operational notes
 
 - Administrative requests are rate limited like everything else.

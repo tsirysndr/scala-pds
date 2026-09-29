@@ -18,7 +18,7 @@ class DatabaseSuite extends munit.CatsEffectSuite:
             Sql.query(connection, "SELECT name FROM sqlite_master WHERE type = 'table'")(
               _.string("name")).toSet)
         yield
-          assertEquals(first, Vector(1, 2, 3))
+          assertEquals(first, Vector(1, 2, 3, 4))
           assertEquals(second, Vector.empty)
           assert(tables.contains("accounts"), tables.toString)
           assert(tables.contains("repo_blocks"))

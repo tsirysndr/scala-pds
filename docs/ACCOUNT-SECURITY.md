@@ -120,13 +120,34 @@ The authenticated view lists:
 
 ## Lockout recovery
 
-Losing every factor is recovered by an operator with `PDS_ADMIN_PASSWORD`:
+An owner who still knows their password but has lost every second factor is
+recovered by an operator, on the host, with the database credentials:
+
+```sh
+java -jar scala-pds.jar recover-account alice.example.com "ticket-42"
+```
+
+```
+scala-pds: recovered alice.example.com (did:plc:…)
+scala-pds: removed authenticator=true recoveryCodes=8 passkeys=1
+scala-pds: security epoch is now 3; every session and OAuth token for the account has ended
+```
+
+It clears the authenticator and its recovery codes, every passkey, and the email
+second factor, then raises the security epoch so nothing issued before the
+recovery still works. It deliberately **does not** touch the password: this
+restores access to whoever already knows it, rather than handing the account to
+the operator.
+
+Every recovery is recorded in `account_recoveries` with what was removed, the
+epoch it happened at, and the reference the operator supplied, so the act is
+auditable after the fact.
+
+An owner who has lost the password as well needs a password reset, which is an
+administrative API call:
 
 ```sh
 curl -sS -X POST https://pds.example.com/xrpc/com.atproto.admin.updateAccountPassword \
   -u "admin:$PDS_ADMIN_PASSWORD" -H 'content-type: application/json' \
   -d '{"did":"did:plc:…","password":"a new strong password"}'
 ```
-
-That raises the security epoch and ends every session. It does not clear a TOTP
-enrollment; removing one requires database access, which is deliberate.
