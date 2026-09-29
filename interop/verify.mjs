@@ -458,6 +458,19 @@ await check("the frame sequence starts with identity, account and sync", async (
   return kinds.join(" ");
 });
 
+await check("a cursor beyond the sequence is refused with an error frame", async () => {
+  const frames = await collectFrames(
+    `${BASE.replace("http", "ws")}/xrpc/com.atproto.sync.subscribeRepos?cursor=999999`,
+    1,
+  );
+  if (frames.length !== 1) throw new Error(`expected one frame, got ${frames.length}`);
+  if (frames[0].header.op !== -1) throw new Error(`header op is ${frames[0].header.op}`);
+  if (frames[0].body.error !== "FutureCursor") {
+    throw new Error(`error is ${frames[0].body.error}`);
+  }
+  return frames[0].body.error;
+});
+
 async function collectFrames(url, count) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
