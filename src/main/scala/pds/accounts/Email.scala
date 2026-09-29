@@ -66,6 +66,49 @@ object Email:
       ).deepMerge(fields).noSpaces,
       now, now)
 
+  /** The endpoint owns sender identity and provider credentials, so a message on
+    * the wire is exactly `{to, subject, text}`. Templating happens here rather
+    * than in the endpoint, which only has a purpose string to go on otherwise.
+    */
+  def render(hostname: String, payload: Json): Option[Json] =
+    val cursor = payload.hcursor
+    val body =
+      for
+        to <- cursor.get[String]("to").toOption
+        rendered <- cursor.get[String]("purpose").toOption.flatMap { purpose =>
+          def coded(subject: String, lead: String): Option[(String, String)] =
+            cursor.get[String]("token").toOption.map { code =>
+              (subject, s"$lead\n\n    $code\n\n" +
+                s"The code is valid for ${tokenSeconds / 60} minutes. " +
+                s"If you did not ask for it, you can ignore this message.\n\n$hostname\n")
+            }
+          purpose match
+            case "sign-in" => coded(s"Your $hostname sign-in code",
+              "Use this code to finish signing in:")
+            case "confirm-email" => coded(s"Confirm your email address on $hostname",
+              "Use this code to confirm your email address:")
+            case "update-email" => coded(s"Confirm your new email address on $hostname",
+              "Use this code to confirm your new email address:")
+            case "reset-password" => coded(s"Reset your $hostname password",
+              "Use this code to set a new password:")
+            case "delete-account" => coded(s"Confirm deleting your $hostname account",
+              "Use this code to confirm deleting your account. This cannot be undone:")
+            case "plc-operation" => coded(s"Confirm an identity change on $hostname",
+              "Use this code to confirm a change to your identity:")
+            case "admin-notice" =>
+              for
+                subject <- cursor.get[String]("subject").toOption
+                content <- cursor.get[String]("content").toOption
+              yield (subject, content)
+            case _ => None
+        }
+      yield Json.obj(
+        "to" -> Json.fromString(to),
+        "subject" -> Json.fromString(rendered._1),
+        "text" -> Json.fromString(rendered._2)
+      )
+    body
+
   /** Drains pending messages; failures are retried with a backoff. */
   def deliver(env: Env): IO[Int] =
     if !env.config.emailEnabled then IO.pure(0)
@@ -77,27 +120,33 @@ object Email:
             now)(row => (row.string("id"), row.string("payload"), row.int("attempts")))
         ).flatMap { pending =>
           pending.traverseCount { (id, payload, attempts) =>
-            val body = io.circe.parser.parse(payload).getOrElse(Json.obj())
-            val headers = env.config.emailToken
-              .map(token => Headers(env.net.header("Authorization", s"Bearer $token")))
-              .getOrElse(Headers.empty)
-            env.net.postJson(env.config.emailEndpoint.get, body.deepMerge(
-              Json.obj("from" -> Json.fromString(env.config.emailFrom))), headers).flatMap {
-              case Right(_) =>
-                env.database.transact(connection =>
-                  Sql.update(connection,
-                    "UPDATE email_outbox SET status = 'sent', sent_at = ? WHERE id = ?", now, id)
-                ).as(1)
-              case Left(error) =>
-                val failed = attempts + 1 >= 5
-                env.database.transact(connection =>
-                  Sql.update(connection,
-                    """UPDATE email_outbox SET attempts = ?, last_error = ?, status = ?,
-                       available_at = ? WHERE id = ?""",
-                    attempts + 1, error.take(500), if failed then "failed" else "pending",
-                    now + math.min(3600, 30 * (1 << attempts)).toLong * 1000, id)
-                ).as(0)
-            }
+            def give(error: String, permanent: Boolean): IO[Int] =
+              val failed = permanent || attempts + 1 >= 5
+              env.database.transact(connection =>
+                Sql.update(connection,
+                  """UPDATE email_outbox SET attempts = ?, last_error = ?, status = ?,
+                     available_at = ? WHERE id = ?""",
+                  attempts + 1, error.take(500), if failed then "failed" else "pending",
+                  now + math.min(3600, 30 * (1 << attempts)).toLong * 1000, id)
+              ).as(0)
+            render(env.config.hostname,
+              io.circe.parser.parse(payload).getOrElse(Json.obj())) match
+              case None => give("Message cannot be rendered", permanent = true)
+              case Some(body) =>
+                // The row id is the idempotency key, so a retry after an
+                // ambiguous failure cannot deliver the same message twice.
+                val headers = Headers(env.net.header("Idempotency-Key", id)) ++
+                  env.config.emailToken
+                    .map(token => Headers(env.net.header("Authorization", s"Bearer $token")))
+                    .getOrElse(Headers.empty)
+                env.net.postJson(env.config.emailEndpoint.get, body, headers).flatMap {
+                  case Right(_) =>
+                    env.database.transact(connection =>
+                      Sql.update(connection,
+                        "UPDATE email_outbox SET status = 'sent', sent_at = ? WHERE id = ?", now, id)
+                    ).as(1)
+                  case Left(error) => give(error, permanent = false)
+                }
           }
         }
       }
