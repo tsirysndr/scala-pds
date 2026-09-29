@@ -162,22 +162,16 @@ object RepoStore:
       "SELECT DISTINCT collection FROM records WHERE did = ? ORDER BY collection", did)(
       _.string("collection"))
 
-  /** Every block reachable from the current commit, for CAR export. */
-  def exportBlocks(connection: Connection, did: String): Either[String, (Cid, Vector[(Cid, Array[Byte])])] =
-    val reader = blockReader(connection, did)
+  /** The blocks an export must carry, as CIDs: the commit, every tree node and
+    * every record reachable from the current root. Only the identifiers are
+    * collected here so the bytes can be streamed one block at a time.
+    */
+  def exportCids(connection: Connection, did: String): Either[String, (Head, Vector[Cid])] =
     head(connection, did).toRight("Repository was not found").flatMap { current =>
-      val store = new Mst.Store(reader)
+      val store = new Mst.Store(blockReader(connection, did))
       for
         nodes <- MstOps.nodeCids(store, current.root)
         tree <- store.tree(current.root)
         leaves <- MstOps.entries(store, tree)
-        cids = (current.commit.cid +: nodes) ++ leaves.map(_._2)
-        blocks <- cids.distinct.foldLeft[Either[String, Vector[(Cid, Array[Byte])]]](Right(Vector.empty)) {
-          (acc, cid) =>
-            for
-              list <- acc
-              bytes <- reader(cid).toRight(s"Missing block during export")
-            yield list :+ (cid -> bytes)
-        }
-      yield (current.commit.cid, blocks)
+      yield (current, ((current.commit.cid +: nodes) ++ leaves.map(_._2)).distinct)
     }

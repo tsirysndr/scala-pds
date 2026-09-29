@@ -32,6 +32,12 @@ final class Database(private val source: HikariDataSource, val dialect: Dialect)
     finally connection.close()
   }
 
+  /** A connection held open for the life of a stream, so a large read can be
+    * produced incrementally instead of being buffered.
+    */
+  def connection: Resource[IO, Connection] =
+    Resource.make(IO.blocking(source.getConnection()))(c => IO.blocking(c.close()))
+
 object Database:
   def resource(config: DatabaseConfig): Resource[IO, Database] =
     Resource.make(IO.blocking(open(config)))(database => IO.blocking(database.source.close()))

@@ -39,16 +39,33 @@ object SyncApi:
         .getOrElse(throw XrpcError.named(Status.BadRequest, "RepoNotFound",
           "Repository was not found")).did)
 
+  /** Streams the archive: the connection is held for the life of the response
+    * and each block is read as it is written, so memory does not scale with
+    * repository size.
+    */
   private def getRepo(env: Env, request: Request[IO]): IO[Response[IO]] =
     for
       did <- account(env, Xrpc.requireParam(request, "did"))
-      exported <- env.database.read { connection =>
+      prepared <- env.database.read { connection =>
         Accounts.requireActive(connection, did)
-        RepoStore.exportBlocks(connection, did)
+        RepoStore.exportCids(connection, did)
       }
-      result <- IO.fromEither(exported.left.map(XrpcError.invalidRequest))
-      head <- env.database.read(connection => RepoStore.head(connection, did))
-    yield car(Car.write(Vector(result._1), result._2), head.map(_.rev))
+      exported <- IO.fromEither(prepared.left.map(XrpcError.invalidRequest))
+      (head, cids) = exported
+      body = Stream.chunk(fs2.Chunk.array(Car.header(Vector(head.commit.cid)))) ++
+        Stream.resource(env.database.connection).flatMap { connection =>
+          val reader = RepoStore.blockReader(connection, did)
+          Stream.emits(cids).evalMap { cid =>
+            IO.blocking(reader(cid)).flatMap {
+              case Some(bytes) => IO.pure(fs2.Chunk.array(Car.block(cid, bytes)))
+              case None => IO.raiseError(XrpcError.internal("A block vanished during export"))
+            }
+          }.flatMap(Stream.chunk)
+        }
+    yield Response[IO](Status.Ok)
+      .withBodyStream(body)
+      .withContentType(`Content-Type`(MediaType.unsafeParse("application/vnd.ipld.car")))
+      .putHeaders(Header.Raw(CIString("Atproto-Repo-Rev"), head.rev))
 
   private def getRepoStatus(env: Env, request: Request[IO]): IO[Response[IO]] =
     for

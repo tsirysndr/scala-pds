@@ -84,15 +84,21 @@ current commit, followed by the commit block, every tree node and every record.
 The response carries `Atproto-Repo-Rev`. Because the export walks the live tree,
 blocks orphaned by past deletions are never served.
 
+The archive is produced incrementally: the tree walk collects block
+*identifiers*, then a held connection reads and writes one block at a time, so
+the server's memory does not scale with repository size.
+
 `com.atproto.sync.getRecord` returns a proof: the commit, the tree nodes on the
 path to the key, and the record itself when it exists — enough to verify
 inclusion, or exclusion, against the signed root.
 
-`com.atproto.repo.importRepo` accepts a CAR archive up to 256 MiB. Every block is
-verified against its own CID as it is read, the root must decode as a commit for
-the authenticated account, and the commit must verify against the account's
-signing key and resolve its whole tree before anything is stored. The record
-index and blob references are then rebuilt from the imported tree.
+`com.atproto.repo.importRepo` accepts a CAR archive up to 256 MiB. The body is
+staged to a temporary file rather than held in memory, then parsed a block at a
+time. Every block is verified against its own CID as it is read, the root must
+decode as a commit for the authenticated account, and the commit must verify
+against the account's signing key and resolve its whole tree before anything is
+stored. The record index and blob references are then rebuilt from the imported
+tree, and the staged file is removed whether the import succeeded or not.
 
 ## Storage model
 

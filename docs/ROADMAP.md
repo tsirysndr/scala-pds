@@ -62,7 +62,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 ### Storage and scale
 
 - Shared rate-limit counters (Redis), so several instances enforce one budget.
-- Streaming CAR export and import, rather than buffering the archive.
 
 ### Key custody
 

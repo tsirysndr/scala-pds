@@ -401,15 +401,28 @@ object RepoApi:
       ).deepDropNullValues)
     yield response
 
-  /** Imports a CAR archive into an empty repository, verifying every block. */
+  val maxImportBytes = 256L * 1024 * 1024
+
+  /** Imports a CAR archive, verifying every block. The archive is staged on
+    * disk rather than held in memory, and parsed a block at a time.
+    */
   private def importRepo(env: Env, request: Request[IO]): IO[Response[IO]] =
     for
       session <- Xrpc.session(env, request)
       _ <- Xrpc.requirePrivileged(session)
-      bytes <- request.body.take(256L * 1024 * 1024 + 1).compile.to(Array)
-      _ <- IO.raiseWhen(bytes.length > 256 * 1024 * 1024)(
-        XrpcError.payloadTooLarge("Repository archive is too large"))
-      parsed <- IO.fromEither(Car.read(bytes).left.map(XrpcError.invalidRequest))
+      parsed <- staged(request).use { file =>
+        IO.blocking {
+          val stream = java.nio.file.Files.newInputStream(file)
+          try
+            val reader = new Car.Reader(new java.io.BufferedInputStream(stream))
+            for
+              roots <- reader.roots()
+              blocks <- readAll(reader, Vector.empty)
+            yield (roots, blocks)
+          finally stream.close()
+        }
+      }
+      parsed <- IO.fromEither(parsed.left.map(XrpcError.invalidRequest))
       now <- env.now
       _ <- env.database.transact { connection =>
         val account = Accounts.require(connection, session.did)
@@ -440,6 +453,31 @@ object RepoApi:
       }
       response <- Xrpc.empty
     yield response
+
+  /** Writes the request body to a temporary file, bounded, and removes it. */
+  private def staged(request: Request[IO]): cats.effect.Resource[IO, java.nio.file.Path] =
+    cats.effect.Resource.make(
+      IO.blocking(java.nio.file.Files.createTempFile("pds-import", ".car")).flatMap { file =>
+        request.body.take(maxImportBytes + 1)
+          .through(fs2.io.file.Files[IO].writeAll(fs2.io.file.Path.fromNioPath(file)))
+          .compile.drain *>
+          IO.blocking(java.nio.file.Files.size(file)).flatMap { size =>
+            IO.raiseWhen(size > maxImportBytes)(
+              XrpcError.payloadTooLarge("Repository archive is too large"))
+          }.as(file)
+      }
+    )(file => IO.blocking(java.nio.file.Files.deleteIfExists(file)).void)
+
+  @annotation.tailrec
+  private def readAll(
+      reader: Car.Reader, acc: Vector[(Cid, Array[Byte])]
+  ): Either[String, Vector[(Cid, Array[Byte])]] =
+    if acc.length > 200000 then Left("Repository archive has too many blocks")
+    else
+      reader.next() match
+        case Left(message)     => Left(message)
+        case Right(None)       => Right(acc)
+        case Right(Some(item)) => readAll(reader, acc :+ item)
 
   private def reindex(
       connection: java.sql.Connection, did: String, commit: Commit, blocks: Map[Cid, Array[Byte]]

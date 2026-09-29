@@ -178,6 +178,38 @@ class MigrationSuite extends munit.CatsEffectSuite:
     }
   }
 
+  test("a large repository exports and re-imports without buffering it whole") {
+    harness().use { server =>
+      for
+        auth <- register(server, "alice")
+        (access, did) = auth
+        // Enough records that the tree is several layers deep.
+        _ <- (1 to 300).toVector.foldLeft(IO.unit)((acc, index) =>
+          acc *> write(server, access, did, index).void)
+        exported <- server.run(get(s"/xrpc/com.atproto.sync.getRepo?did=$did"))
+        archive <- exported.body.compile.to(Array)
+        head <- server.json(get(s"/xrpc/com.atproto.sync.getLatestCommit?did=$did"))
+        _ <- server.env.database.transact(connection =>
+          Sql.update(connection, "DELETE FROM records WHERE did = ?", did))
+        imported <- importCar(server, access, archive)
+        listed <- server.json(get(
+          s"/xrpc/com.atproto.repo.listRecords?repo=$did&collection=app.bsky.feed.post&limit=100"))
+        status <- server.json(authorized(
+          get("/xrpc/com.atproto.server.checkAccountStatus"), access))
+      yield
+        assertEquals(exported.status, Status.Ok)
+        assertEquals(exported.headers.get(org.typelevel.ci.CIString("Atproto-Repo-Rev"))
+          .map(_.head.value), head._2.hcursor.get[String]("rev").toOption)
+        val (roots, blocks) = Car.read(archive).fold(fail(_), identity)
+        assertEquals(roots.length, 1)
+        // commit + tree nodes + one block per record
+        assert(blocks.length > 300, blocks.length.toString)
+        assertEquals(imported._1, Status.Ok)
+        assertEquals(listed._2.hcursor.downField("records").values.map(_.size), Some(100))
+        assertEquals(status._2.hcursor.get[Long]("indexedRecords"), Right(300L))
+    }
+  }
+
   test("a signing key can be reserved for a DID before it is adopted") {
     harness().use { server =>
       for
