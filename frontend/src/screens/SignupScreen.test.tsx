@@ -28,6 +28,7 @@ describe("signup", () => {
     await userEvent.type(screen.getByLabelText(/Username/), "Alice");
     await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
     await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
     await userEvent.click(screen.getByRole("button", { name: "Create account" }));
 
     await waitFor(() =>
@@ -74,6 +75,7 @@ describe("signup", () => {
     await userEvent.type(screen.getByLabelText(/Username/), "alice");
     await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
     await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
     await userEvent.click(screen.getByRole("button", { name: "Create account" }));
 
     expect(await screen.findByText("Enter your invite code")).toBeInTheDocument();
@@ -91,6 +93,7 @@ describe("signup", () => {
     await userEvent.type(screen.getByLabelText(/Username/), "alice");
     await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
     await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
     await userEvent.type(screen.getByLabelText(/Invite code/), "pds-example-com-abc12");
     await userEvent.click(screen.getByRole("button", { name: "Create account" }));
 
@@ -111,5 +114,43 @@ describe("signup", () => {
     expect(await screen.findByLabelText(/Username/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Invite code/)).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Invite code")).not.toBeInTheDocument();
+  });
+  it("refuses a confirmation that does not match", async () => {
+    const calls = stubFetch({ "/account/session": () => [200, session()] });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    await userEvent.type(screen.getByLabelText(/Username/), "alice");
+    await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
+    await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse bat");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("Those passwords do not match")).toBeInTheDocument();
+    expect(calls.filter((call) => call.path === "/account/action/signup")).toHaveLength(0);
+  });
+
+  it("never sends the confirmation to the server", async () => {
+    const calls = stubFetch({
+      "/account/session": () => [200, session()],
+      "/account/action/signup": () => [200, session({ stage: "authenticated" })],
+    });
+    render(<App client={client()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    await userEvent.type(screen.getByLabelText(/Username/), "alice");
+    await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
+    await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/account/action/signup")).toBe(true),
+    );
+    const body = calls.find((call) => call.path === "/account/action/signup")?.body as
+      | Record<string, unknown>
+      | undefined;
+    expect(body).toBeDefined();
+    expect(Object.keys(body ?? {})).not.toContain("confirmPassword");
   });
 });

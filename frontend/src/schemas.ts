@@ -24,27 +24,33 @@ export type FactorValues = z.infer<typeof factorSchema>;
 
 /** Whether an invite code is demanded follows the server, so the schema does. */
 export const signupSchema = (inviteRequired: boolean) =>
-  z.object({
-    username: z
-      .string()
-      .trim()
-      .min(3, "Usernames need at least three characters")
-      .max(63, "That username is too long")
-      .regex(
-        /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/,
-        "Use letters, numbers, and inner hyphens",
-      ),
-    email: z
-      .string()
-      .email("Enter a valid email address")
-      .max(320, "That email address is too long"),
-    password,
-    // When no code is required the field is not shown and stays empty, so it
-    // has to validate as empty.
-    inviteCode: inviteRequired
-      ? z.string().trim().min(1, "Enter your invite code").max(256, "That invite code is too long")
-      : z.string().trim().max(256, "That invite code is too long"),
-  });
+  z
+    .object({
+      username: z
+        .string()
+        .trim()
+        .min(3, "Usernames need at least three characters")
+        .max(63, "That username is too long")
+        .regex(
+          /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/,
+          "Use letters, numbers, and inner hyphens",
+        ),
+      email: z
+        .string()
+        .email("Enter a valid email address")
+        .max(320, "That email address is too long"),
+      password,
+      confirmPassword: z.string(),
+      // When no code is required the field is not shown and stays empty, so it
+      // has to validate as empty.
+      inviteCode: inviteRequired
+        ? z.string().trim().min(1, "Enter your invite code").max(256, "That invite code is too long")
+        : z.string().trim().max(256, "That invite code is too long"),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      path: ["confirmPassword"],
+      message: "Those passwords do not match",
+    });
 
 export type SignupValues = z.infer<ReturnType<typeof signupSchema>>;
 
