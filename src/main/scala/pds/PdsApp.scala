@@ -70,17 +70,19 @@ object PdsApp:
           Response[IO](Status.Ok).withEntity(body)
             .withContentType(`Content-Type`(MediaType.text.plain)))
 
-      case GET -> Root / ".well-known" / "did.json" =>
-        Xrpc.ok(DidDocument.service(env.config.serviceDid, env.config.publicUrl))
+      case request @ GET -> Root / ".well-known" / "did.json" =>
+        // A did:web document is served at the host its DID names, so the same
+        // path answers for the service and for any account hosted here.
+        hostedDocument(env, s"did:web:${authority(env, request)}").flatMap { document =>
+          document.fold(
+            Xrpc.ok(DidDocument.service(env.config.serviceDid, env.config.publicUrl)))(Xrpc.ok)
+        }
 
       case GET -> Root / ".well-known" / "oauth-authorization-server" =>
         Xrpc.ok(Metadata.authorizationServer(env.config))
 
       case GET -> Root / ".well-known" / "oauth-protected-resource" =>
         Xrpc.ok(Metadata.protectedResource(env.config))
-
-      case GET -> Root / "u" / name / "did.json" =>
-        hostedDocument(env, s"did:web:${env.config.hostname}:u:$name")
 
       case request @ GET -> Root / "xrpc" / "com.atproto.sync.subscribeRepos" =>
         builder match
@@ -144,15 +146,20 @@ object PdsApp:
           s"""path="${request.uri.path.renderString}" status=${response.status.code} """ +
           s"""duration_ms=$millis client="$client"""")
 
-  private def hostedDocument(env: Env, did: String): IO[Response[IO]] =
+  /** The request's host, lowercased and without its port. */
+  private def authority(env: Env, request: Request[IO]): String =
+    request.headers.get(CIString("Host")).map(_.head.value)
+      .orElse(request.uri.host.map(_.value))
+      .getOrElse(env.config.hostname)
+      .takeWhile(_ != ':')
+      .toLowerCase
+
+  private def hostedDocument(env: Env, did: String): IO[Option[Json]] =
     env.database.read { connection =>
       pds.accounts.Accounts.byDid(connection, did).filter(_.status != "deleted").map { account =>
         val key = RepoStore.signingKey(connection, account.did, env.sealing)
         DidDocument.build(account.did, account.handle, key.publicKey, env.config.publicUrl)
       }
-    }.flatMap {
-      case Some(document) => Xrpc.ok(document)
-      case None => IO.pure(XrpcError.notFound("No such account on this server").response[IO])
     }
 
   /** CORS, cache and DPoP headers, plus the OAuth discovery challenge. */
@@ -182,5 +189,11 @@ object PdsApp:
     if isXrpc && response.status == Status.Unauthorized then
       val discovery =
         s"""resource_metadata="${env.config.publicUrl}/.well-known/oauth-protected-resource""""
-      withNonce.putHeaders(Header.Raw(CIString("WWW-Authenticate"), s"DPoP $discovery"))
+      // A DPoP challenge already names the error; only the discovery hint is added.
+      val existing = response.headers.get(CIString("WWW-Authenticate")).map(_.head.value)
+      val challenge = existing match
+        case Some(value) if value.startsWith("DPoP") => s"$value, $discovery"
+        case Some(value)                             => s"$value, DPoP $discovery"
+        case None                                    => s"DPoP $discovery"
+      withNonce.putHeaders(Header.Raw(CIString("WWW-Authenticate"), challenge))
     else withNonce

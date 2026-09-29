@@ -101,8 +101,9 @@ object Register:
     request.did match
       case Some(existing) => adopt(env, existing).as(Identity(existing, None))
       case None if env.config.didMethod == "web" =>
-        val name = handle.dropRight(env.config.userDomain.length + 1)
-        IO.pure(Identity(s"did:web:${env.config.hostname}:u:$name", None))
+        // AT Protocol allows only hostname did:web, with no port or path, so
+        // the account's DID is its own handle's domain.
+        IO.pure(Identity(s"did:web:$handle", None))
       case None =>
         val keys = recovery.toVector :+ rotation.publicKey
         val genesis = Plc.genesis(handle, signing.publicKey, keys, env.config.publicUrl)

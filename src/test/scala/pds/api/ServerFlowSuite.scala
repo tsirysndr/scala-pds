@@ -43,7 +43,8 @@ class ServerFlowSuite extends munit.CatsEffectSuite:
           post("/xrpc/com.atproto.server.refreshSession", Json.obj()), refreshToken))
       yield
         assertEquals(created._1, Status.Ok)
-        assert(did.startsWith("did:web:pds.example.com:u:alice"), did)
+        // AT Protocol did:web is a bare hostname: the account's own handle.
+        assertEquals(did, "did:web:alice.pds.example.com")
         assertEquals(session._1, Status.Ok)
         assertEquals(current._1, Status.Ok)
         assertEquals(current._2.hcursor.get[String]("did"), Right(did))
@@ -287,21 +288,31 @@ class ServerFlowSuite extends munit.CatsEffectSuite:
     }
   }
 
-  test("the service DID document and hosted account documents are served") {
+  test("each did:web document is served at the host its DID names") {
     harness().use { server =>
+      def atHost(host: String) =
+        server.json(get("/.well-known/did.json").putHeaders(
+          org.http4s.Header.Raw(org.typelevel.ci.CIString("Host"), host)))
       for
         created <- server.json(post("/xrpc/com.atproto.server.createAccount", account()))
-        service <- server.json(get("/.well-known/did.json"))
-        hosted <- server.json(get("/u/alice/did.json"))
-        absent <- server.json(get("/u/nobody/did.json"))
+        service <- atHost("pds.example.com")
+        withPort <- atHost("pds.example.com:8443")
+        hosted <- atHost("alice.pds.example.com")
+        uppercase <- atHost("ALICE.pds.example.com")
+        stranger <- atHost("nobody.pds.example.com")
       yield
         assertEquals(service._2.hcursor.get[String]("id"), Right("did:web:pds.example.com"))
+        assertEquals(withPort._2.hcursor.get[String]("id"), Right("did:web:pds.example.com"))
         assertEquals(hosted._1, Status.Ok)
         assertEquals(hosted._2.hcursor.get[String]("id"),
           Right(created._2.hcursor.get[String]("did").toOption.get))
         assertEquals(hosted._2.hcursor.get[Vector[String]]("alsoKnownAs"),
           Right(Vector("at://alice.pds.example.com")))
-        assertEquals(absent._1, Status.NotFound)
+        assertEquals(uppercase._2.hcursor.get[String]("id"),
+          Right("did:web:alice.pds.example.com"))
+        // An unknown host falls back to the service document rather than leaking
+        // whether an account exists.
+        assertEquals(stranger._2.hcursor.get[String]("id"), Right("did:web:pds.example.com"))
     }
   }
 
