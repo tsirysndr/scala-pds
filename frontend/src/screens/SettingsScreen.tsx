@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Divider, Snippet, Switch } from "@heroui/react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAtom } from "jotai";
 import {
   IconDeviceMobile,
@@ -146,7 +147,19 @@ export function SettingsScreen({ session }: { session: Session }) {
         ) : enrollment ? (
           <form onSubmit={(event) => void confirmTotp(event)} className="flex flex-col gap-3">
             <p className="text-sm text-default-500">
-              Add this secret to your authenticator, then enter the code it shows.
+              Scan this with your authenticator, then enter the code it shows.
+            </p>
+            <figure className="flex flex-col items-center gap-2 self-start rounded-md bg-white p-3">
+              <QRCodeSVG
+                value={enrollment.uri}
+                size={176}
+                level="M"
+                marginSize={0}
+                title="Authenticator setup code"
+              />
+            </figure>
+            <p className="text-sm text-default-500">
+              Cannot scan it? Enter this secret by hand instead.
             </p>
             <Snippet size="sm" radius="sm" symbol="" className="font-mono">
               {enrollment.secret}

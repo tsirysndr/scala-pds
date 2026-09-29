@@ -179,7 +179,7 @@ describe("account settings", () => {
       "/account/session": () => [200, signedIn],
       "/account/action/totp/begin": () => [
         200,
-        { ...signedIn, result: { secret: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/x" } },
+        { ...signedIn, result: { secret: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/pds.example.com:alice.pds.example.com?secret=JBSWY3DPEHPK3PXP&issuer=pds.example.com" } },
       ],
       "/account/action/totp/confirm": () => [
         200,
@@ -190,6 +190,11 @@ describe("account settings", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Set up an authenticator" }));
     expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+
+    // The scannable code and the typed secret are both offered: a camera is not
+    // always available, and the QR carries the same enrollment either way.
+    const qr = await screen.findByTitle(/authenticator setup code/i);
+    expect(qr.closest("svg")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Authenticator code"), "123456");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
