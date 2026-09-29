@@ -17,6 +17,8 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           experimental: true
+      # mise.toml pins only the JDK; sbt comes from its own action.
+      - uses: sbt/setup-sbt@v1
       - uses: coursier/cache-action@v6
       - name: Test
         run: sbt -batch test
