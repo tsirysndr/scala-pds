@@ -39,6 +39,23 @@ jobs:
         if: always()
         run: cat server.log || true
 
+  interop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+      - uses: sbt/setup-sbt@v1
+      - uses: coursier/cache-action@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: interop/package-lock.json
+      - name: Check the output with the reference atproto implementation
+        run: bash scripts/interop.sh
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

@@ -1,0 +1,18 @@
+{
+  "name": "scala-pds-interop",
+  "private": true,
+  "type": "module",
+  "description": "Checks scala-pds output with the reference atproto implementation.",
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.15.0",
+    "@atproto/common": "^0.4.0",
+    "@atproto/crypto": "^0.4.0",
+    "@atproto/lexicon": "^0.4.0",
+    "@atproto/repo": "^0.7.0",
+    "@atproto/syntax": "^0.4.0",
+    "undici": "^8.11.2"
+  }
+}
