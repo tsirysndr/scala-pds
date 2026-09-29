@@ -70,8 +70,10 @@ final class Net(client: Client[IO], allowPrivate: Boolean, val maxBytes: Long = 
 
   def postJson(url: String, body: Json, headers: Headers = Headers.empty): IO[Either[String, Json]] =
     checkUrl(url).flatMap { uri =>
-      val request = Request[IO](Method.POST, uri, headers = headers.put(`Content-Type`(MediaType.application.json)))
-        .withEntity(body.noSpaces)
+      // The entity carries the content type: encoding a String would label the
+      // body `text/plain` and strict peers answer 415.
+      val request = Request[IO](Method.POST, uri, headers = headers)
+        .withEntity(body)(using org.http4s.circe.jsonEncoderOf[IO, Json])
       client.run(request).use { response =>
         response.body.take(maxBytes).compile.to(Array).map { bytes =>
           val text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
