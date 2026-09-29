@@ -80,10 +80,28 @@ and the bucket can be served through a CDN.
 | `PDS_S3_ACCESS_KEY_ID`     | access key                                                    |
 | `PDS_S3_SECRET_ACCESS_KEY` | secret key                                                    |
 | `PDS_S3_PATH_STYLE`        | `false` for virtual-host addressing; path style by default    |
+| `PDS_S3_PREFIX`            | key space this server owns; `blobs/` by default               |
 
 Naming a bucket requires the region and both credentials; a partial set is a
 startup error rather than a silent fallback to the database. Requests are signed
 with AWS Signature Version 4 over the payload, so any compatible
+### Sharing a bucket
+
+`PDS_S3_PREFIX` is the key space this server owns; every object it writes goes
+under it, as `<prefix><did>/<cid>`. It exists so one bucket can hold more than
+one service's blobs, which is worth doing deliberately rather than by accident:
+a service that lists a prefix and assumes it understands every key it finds will
+break on someone else's, and one that deletes what it does not recognise will
+destroy them. Give each service a prefix of its own and neither can see the
+other.
+
+Leading and trailing slashes are normalised, so `scala-pds/blobs`,
+`/scala-pds/blobs/` and `scala-pds/blobs/` are the same setting.
+
+Changing the prefix does not move existing objects. Each blob row stores the key
+it was written under, so old blobs keep resolving; only new writes use the new
+prefix.
+
 implementation — MinIO, R2, Backblaze B2 — works by pointing `PDS_S3_ENDPOINT`
 at it.
 

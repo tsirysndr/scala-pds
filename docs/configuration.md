@@ -105,6 +105,7 @@ Without it, each instance counts on its own. See [deployment](/deployment/).
 | `PDS_S3_ACCESS_KEY_ID`     | unset                               | access key, required with a bucket                  |
 | `PDS_S3_SECRET_ACCESS_KEY` | unset                               | secret key, required with a bucket                  |
 | `PDS_S3_PATH_STYLE`        | `true`                              | `false` selects virtual-host addressing             |
+| `PDS_S3_PREFIX`            | `blobs/`                            | key space this server owns in the bucket            |
 
 With no bucket configured, blob bytes stay in the database. See [blobs](/blobs/).
 
