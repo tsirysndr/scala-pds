@@ -405,6 +405,57 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
     }
   }
 
+  test("a token request from another DPoP key cannot redeem the code") {
+    harness(client = routes(upstream())).use { server =>
+      for
+        now <- server.env.now
+        seed <- parRequest(server, now, None)
+        pushed <- parRequest(server, now, nonceOf(seed))
+        requestUri <- pushed.as[Json].map(_.hcursor.get[String]("request_uri").toOption.get)
+        authorize <- server.run(get(
+          s"/oauth/authorize?client_id=${java.net.URLEncoder.encode(clientId, "UTF-8")}" +
+            s"&request_uri=${java.net.URLEncoder.encode(requestUri, "UTF-8")}"))
+        flowId = authorize.headers.get(CIString("Location")).map(_.head.value).get
+          .stripPrefix("/oauth/flow/")
+        flowCookie = cookieOf(authorize, "__Host-pds-oauth").get
+        owner <- signIn(server)
+        (accountCookie, accountCsrf) = owner
+        state <- server.run(withCookie(get(s"/oauth/flow/$flowId/state"),
+          "__Host-pds-oauth", flowCookie))
+        flowCsrf <- state.as[Json].map(_.hcursor.get[String]("csrf").toOption.get)
+        _ <- server.run(withCookie(withCookie(sameOrigin(post(s"/oauth/flow/$flowId/attach",
+          Json.obj("accountCsrf" -> Json.fromString(accountCsrf)))
+          .putHeaders(Header.Raw(CIString("X-CSRF-Token"), flowCsrf))),
+          "__Host-pds-oauth", flowCookie), "__Host-pds-security", accountCookie))
+        decided <- server.run(withCookie(sameOrigin(
+          post(s"/oauth/flow/$flowId/decide", Json.obj("approve" -> Json.True))
+            .putHeaders(Header.Raw(CIString("X-CSRF-Token"), flowCsrf))),
+          "__Host-pds-oauth", flowCookie))
+        location <- decided.as[Json].map(_.hcursor.get[String]("location").toOption.get)
+        code = location.split("[?&]").find(_.startsWith("code=")).get.drop(5)
+        // A different key than the one that pushed the authorization request.
+        other = PrivateKey.generate(Curve.P256)
+        otherProof = (nonce: Option[String]) => Jwt.signEs(other, Json.obj(
+          "jti" -> Json.fromString(Hash.token()),
+          "htm" -> Json.fromString("POST"),
+          "htu" -> Json.fromString(s"$origin/oauth/token"),
+          "iat" -> Json.fromLong(now / 1000),
+          "nonce" -> nonce.map(Json.fromString).getOrElse(Json.Null)).deepDropNullValues,
+          Json.obj("typ" -> Json.fromString("dpop+jwt"), "alg" -> Json.fromString("ES256"),
+            "jwk" -> other.publicKey.jwk))
+        seedToken <- server.run(form("/oauth/token", Map("client_id" -> clientId),
+          otherProof(None)))
+        stolen <- server.run(form("/oauth/token", Map(
+          "grant_type" -> "authorization_code", "client_id" -> clientId, "code" -> code,
+          "code_verifier" -> verifier, "redirect_uri" -> redirect
+        ), otherProof(nonceOf(seedToken))))
+        body <- stolen.as[Json]
+      yield
+        assertEquals(stolen.status, Status.BadRequest)
+        assertEquals(body.hcursor.get[String]("error"), Right("invalid_grant"))
+    }
+  }
+
   test("revocation ends an issued session") {
     harness(client = routes(upstream())).use { server =>
       for

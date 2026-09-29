@@ -46,6 +46,7 @@ object Interaction:
       id: String,
       csrfNonce: String,
       clientId: String,
+      requestUri: String,
       parameters: Map[String, String],
       did: Option[String],
       securityEpoch: Option[Long],
@@ -55,10 +56,10 @@ object Interaction:
   private def load(connection: Connection, id: String, secret: Option[String], now: Long): State =
     val value = secret.filter(Hash.isToken).getOrElse(throw missing)
     Sql.first(connection,
-      """SELECT id, browser_hash, csrf_nonce, client_id, parameters, did, security_epoch, decided,
-         expires_at FROM oauth_interactions WHERE id = ?""", id)(row =>
+      """SELECT id, browser_hash, csrf_nonce, client_id, request_uri, parameters, did,
+         security_epoch, decided, expires_at FROM oauth_interactions WHERE id = ?""", id)(row =>
       (row.string("browser_hash"), State(row.string("id"), row.string("csrf_nonce"),
-        row.string("client_id"),
+        row.string("client_id"), row.string("request_uri"),
         io.circe.parser.parse(row.string("parameters")).toOption.flatMap(_.asObject)
           .map(_.toMap.flatMap((key, json) => json.asString.map(key -> _))).getOrElse(Map.empty),
         row.stringOpt("did"), row.longOpt("security_epoch"), row.bool("decided")),
@@ -154,7 +155,7 @@ object Interaction:
             state.parameters.getOrElse("scope", Scope.required), redirect,
             state.parameters.getOrElse("code_challenge", ""),
             Sql.first(connection, "SELECT dpop_jkt FROM oauth_requests WHERE request_uri = ?",
-              state.parameters.getOrElse("request_uri", ""))(_.stringOpt("dpop_jkt")).flatten,
+              state.requestUri)(_.stringOpt("dpop_jkt")).flatten,
             account.securityEpoch, now, now + 60_000)
           Decision(redirectTo(redirect, Map(
             "code" -> code, "state" -> stateValue, "iss" -> env.config.publicUrl)))

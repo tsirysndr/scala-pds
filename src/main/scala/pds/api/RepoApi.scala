@@ -142,7 +142,6 @@ object RepoApi:
             throw XrpcError.named(Status.BadRequest, "InvalidSwap",
               "The record has changed since the expected version")
         }
-        if swapRecord.isEmpty && Xrpc.field(body, "swapRecord").isEmpty then ()
         val operation =
           if existing.isDefined then Write.Update(collection, key, record)
           else Write.Create(collection, key, record)
