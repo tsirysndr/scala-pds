@@ -55,7 +55,7 @@ object Jwt:
       jwt <- parse(token)
       _ <- Either.cond(jwt.algorithm.contains(key.curve.jwtAlgorithm), (),
         "Unexpected token algorithm")
-      _ <- Either.cond(key.verify(Encoding.utf8(jwt.signed), jwt.signature), (),
+      _ <- Either.cond(key.verifyJose(Encoding.utf8(jwt.signed), jwt.signature), (),
         "Token signature does not verify")
     yield jwt
 

@@ -37,6 +37,53 @@ class JwtSuite extends munit.FunSuite:
     assert(Jwt.verifyEs(key.publicKey, hs).isLeft)
   }
 
+  /** The high-S counterpart of a signature: (r, n - s) verifies the same
+    * message under the same key, and is what a conforming JOSE signer such as
+    * WebCrypto emits about half the time.
+    */
+  private def raiseS(curve: Curve, signature: Array[Byte]): Array[Byte] =
+    val width = signature.length / 2
+    val order = curve match
+      case Curve.P256 => BigInt(
+        "115792089210356248762697446949407573529996955224135760342422259061068512044369")
+      case Curve.K256 => BigInt(
+        "115792089237316195423570985008687907852837564279074904382605163141518161494337")
+    val s = BigInt(1, signature.drop(width))
+    signature.take(width) ++ Encoding.unsigned(order - s, width)
+
+  test("JOSE signatures verify whether or not they are low-S") {
+    Curve.values.foreach { curve =>
+      val key = PrivateKey.generate(curve)
+      val token = Jwt.signService(key, payload)
+      val parts = token.split("\\.")
+      val signature = Encoding.unb64(parts(2)).get
+      val high = raiseS(curve, signature)
+      assertNotEquals(Encoding.hex(high), Encoding.hex(signature))
+
+      val raised = s"${parts(0)}.${parts(1)}.${Encoding.b64(high)}"
+      // RFC 7515 does not require low-S, so a JOSE verifier must accept it.
+      assertEquals(Jwt.verifyEs(key.publicKey, raised).map(_.claim("sub")),
+        Right(Some("did:plc:abc")), curve.name)
+
+      // AT Protocol data signatures still must be low-S.
+      val signed = Encoding.utf8(s"${parts(0)}.${parts(1)}")
+      assert(key.publicKey.verify(signed, signature), curve.name)
+      assert(!key.publicKey.verify(signed, high), s"${curve.name} accepted a high-S signature")
+      assert(key.publicKey.verifyJose(signed, high), curve.name)
+    }
+  }
+
+  test("a signature that is not a point on the curve is refused either way") {
+    val key = PrivateKey.generate(Curve.P256)
+    val message = Encoding.utf8("payload")
+    val signature = key.sign(message)
+    val broken = signature.updated(0, (signature(0) ^ 0xff).toByte)
+    assert(!key.publicKey.verify(message, broken))
+    assert(!key.publicKey.verifyJose(message, broken))
+    assert(!key.publicKey.verifyJose(message, new Array[Byte](64)))
+    assert(!key.publicKey.verifyJose(message, Array.emptyByteArray))
+  }
+
   test("malformed tokens are refused") {
     List("", "a", "a.b", "a.b.c.d", "!!!.b.c", "eyJ9.eyJ9.AA").foreach(value =>
       assert(Jwt.parse(value).isLeft, value))

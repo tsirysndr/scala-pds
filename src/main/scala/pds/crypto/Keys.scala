@@ -49,14 +49,31 @@ final case class PublicKey(curve: Curve, point: ECPoint):
         Encoding.b64(Encoding.unsigned(BigInt(normalized.getAffineYCoord.toBigInteger), width)))
     )
 
+  /** AT Protocol data signatures — commits, PLC operations, `did:key` vectors —
+    * must be low-S, so a signature cannot be reshaped into a second valid form.
+    */
   def verify(message: Array[Byte], signature: Array[Byte]): Boolean =
+    verify(message, signature, requireLowS = true)
+
+  /** JOSE signatures (DPoP proofs, client assertions, service tokens) are plain
+    * ECDSA: RFC 7515 does not require low-S, and conforming signers such as
+    * WebCrypto emit a high-S value about half the time. Rejecting those would
+    * intermittently refuse valid clients.
+    */
+  def verifyJose(message: Array[Byte], signature: Array[Byte]): Boolean =
+    verify(message, signature, requireLowS = false)
+
+  private def verify(
+      message: Array[Byte], signature: Array[Byte], requireLowS: Boolean
+  ): Boolean =
     val width = curve.fieldWidth
     if signature.length != width * 2 then false
     else
       val r = BigInt(1, signature.take(width))
       val s = BigInt(1, signature.drop(width))
       val order = BigInt(curve.parameters.getN)
-      if r <= 0 || s <= 0 || r >= order || s > order / 2 then false
+      if r <= 0 || s <= 0 || r >= order || s >= order then false
+      else if requireLowS && s > order / 2 then false
       else
         val signer = new ECDSASigner()
         signer.init(false, new ECPublicKeyParameters(point, curve.domain))
