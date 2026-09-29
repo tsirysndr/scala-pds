@@ -138,11 +138,12 @@ object AdminApi:
     for
       _ <- Xrpc.admin(env, request)
       body <- Xrpc.body(request)
+      now <- env.now
       _ <- env.database.transact { connection =>
         val did = Xrpc.requireField(body, "did")
         Accounts.require(connection, did)
         Events.account(connection, did, active = false, Some("deleted"))
-        Accounts.delete(connection, did)
+        Accounts.delete(connection, did, now)
       }
       response <- Xrpc.empty
     yield response

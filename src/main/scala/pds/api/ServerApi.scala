@@ -376,7 +376,7 @@ object ServerApi:
         Email.consume(connection, "delete-account", Xrpc.requireField(body, "token"), did,
           account.email.getOrElse(""), now)
         Events.account(connection, did, active = false, Some("deleted"))
-        Accounts.delete(connection, did)
+        Accounts.delete(connection, did, now)
       }
       response <- Xrpc.empty
     yield response

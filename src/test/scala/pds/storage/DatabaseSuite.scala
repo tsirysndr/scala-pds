@@ -18,12 +18,14 @@ class DatabaseSuite extends munit.CatsEffectSuite:
             Sql.query(connection, "SELECT name FROM sqlite_master WHERE type = 'table'")(
               _.string("name")).toSet)
         yield
-          assertEquals(first, Vector(1))
+          assertEquals(first, Vector(1, 2))
           assertEquals(second, Vector.empty)
           assert(tables.contains("accounts"), tables.toString)
           assert(tables.contains("repo_blocks"))
           assert(tables.contains("oauth_tokens"))
           assert(tables.contains("schema_migrations"))
+          assert(tables.contains("blob_deletions"))
+          assert(!tables.contains("blobs_next"), "the rebuilt table must be renamed in place")
       }
     }
   }

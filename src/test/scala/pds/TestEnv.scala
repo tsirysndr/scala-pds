@@ -10,7 +10,7 @@ import pds.api.RateLimit
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
-import pds.storage.{Database, DatabaseConfig, Migrations}
+import pds.storage.{Database, DatabaseConfig, Migrations, S3}
 
 /** A complete PDS wired to a temporary SQLite file and a scripted HTTP client. */
 object TestEnv:
@@ -32,7 +32,8 @@ object TestEnv:
   def harness(
       overrides: Map[String, String] = Map.empty,
       client: Client[IO] = routes(),
-      lexicons: Option[String => IO[Either[String, io.circe.Json]]] = None
+      lexicons: Option[String => IO[Either[String, io.circe.Json]]] = None,
+      blobs: Option[S3] = None
   ): Resource[IO, Harness] =
     val settings = Map(
       "PDS_HOSTNAME" -> "pds.example.com",
@@ -52,7 +53,7 @@ object TestEnv:
       identity = new Resolver(net, database, config)
       schemas <- Resource.eval(
         lexicons.fold(Schemas.network(net, identity))(Schemas.create))
-      env = Env(config, database, sealing, net, identity, schemas)
+      env = Env(config, database, sealing, net, identity, schemas, blobs)
       limiter <- Resource.eval(RateLimit.create(100000))
     yield Harness(env, PdsApp(env, client, limiter, None))
 

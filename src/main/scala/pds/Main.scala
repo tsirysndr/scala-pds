@@ -10,7 +10,7 @@ import pds.api.RateLimit
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
-import pds.storage.{Backend, Database, DatabaseConfig, Migrations, Sql}
+import pds.storage.{Backend, Database, DatabaseConfig, Migrations, S3, S3Config, Sql}
 import pds.tools.MasterKeyRotation
 import scala.concurrent.duration.*
 
@@ -85,11 +85,15 @@ object Main extends IOApp:
       val net = new Net(client, allowPrivate)
       val identity = new Resolver(net, database, config)
       for
+        blobs <- IO.fromEither(S3Config.fromEnv(environment)
+          .left.map(new IllegalArgumentException(_)))
+          .map(_.map(new S3(_, client)))
         schemas <- Schemas.network(net, identity)
-        env = Env(config, database, sealing, net, identity, schemas)
+        env = Env(config, database, sealing, net, identity, schemas, blobs)
         applied <- Migrations.run(database)
         _ <- IO.println(s"scala-pds: ${databaseConfig.backend} storage, " +
-          s"${applied.length} migration(s) applied")
+          s"${applied.length} migration(s) applied" +
+          blobs.fold("")(store => s", blobs in ${store.bucket}"))
         limiter <- RateLimit.create(config.rateLimitPerMinute)
         _ <- requestCrawl(env).start
         _ <- background(env).start
@@ -148,7 +152,8 @@ object Main extends IOApp:
 
   /** Email delivery and expiry sweeps. */
   private def background(env: Env): IO[Unit] =
-    val work = Email.deliver(env).attempt *> sweep(env).attempt
+    val work = Email.deliver(env).attempt *> pds.repo.BlobStore.sweep(env).attempt *>
+      sweep(env).attempt
     (work *> IO.sleep(30.seconds)).foreverM
 
   private def sweep(env: Env): IO[Unit] =

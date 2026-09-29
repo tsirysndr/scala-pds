@@ -144,7 +144,8 @@ object Accounts:
           """UPDATE accounts SET status = status_before_takedown, takedown_ref = NULL
              WHERE did = ? AND status = 'taken_down'""", did)
 
-  def delete(connection: Connection, did: String): Unit =
+  def delete(connection: Connection, did: String, now: Long): Unit =
+    pds.repo.BlobStore.forget(connection, did, now)
     Sql.update(connection, "DELETE FROM repo_blocks WHERE did = ?", did)
     Sql.update(connection, "DELETE FROM blobs WHERE did = ?", did)
     Sql.update(connection, "DELETE FROM accounts WHERE did = ?", did)

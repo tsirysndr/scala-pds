@@ -80,6 +80,19 @@ URL, user and password together. See [storage backends](/storage/).
 | `PDS_RELAY_URLS` | unset | comma-separated relays asked to crawl this host at startup |
 | `PDS_BLOB_MAX_SIZE` | `5242880` | largest accepted blob in bytes, 1 KiB–100 MiB |
 
+## Blob storage
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PDS_S3_BUCKET` | unset | bucket for blobs; setting it selects the S3 backend |
+| `PDS_S3_REGION` | unset | signing region, required with a bucket |
+| `PDS_S3_ENDPOINT` | `https://s3.<region>.amazonaws.com` | endpoint URL |
+| `PDS_S3_ACCESS_KEY_ID` | unset | access key, required with a bucket |
+| `PDS_S3_SECRET_ACCESS_KEY` | unset | secret key, required with a bucket |
+| `PDS_S3_PATH_STYLE` | `true` | `false` selects virtual-host addressing |
+
+With no bucket configured, blob bytes stay in the database. See [blobs](/blobs/).
+
 ## Email
 
 | Variable | Default | Meaning |

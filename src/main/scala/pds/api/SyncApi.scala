@@ -145,17 +145,7 @@ object SyncApi:
       did <- account(env, Xrpc.requireParam(request, "did"))
       cid <- IO.fromOption(Cid.parse(Xrpc.requireParam(request, "cid")))(
         XrpcError.invalidRequest("cid must be a CID"))
-      found <- env.database.read { connection =>
-        Accounts.requireActive(connection, did)
-        Sql.first(connection,
-          """SELECT content, mime_type, takedown_ref FROM blobs WHERE did = ? AND cid = ?""",
-          did, cid.toString)(row =>
-          (row.bytes("content"), row.string("mime_type"), row.stringOpt("takedown_ref")))
-      }
-      blob <- IO.fromOption(found)(
-        XrpcError.named(Status.NotFound, "BlobNotFound", "Blob was not found"))
-      _ <- IO.raiseWhen(blob._3.isDefined)(
-        XrpcError.named(Status.NotFound, "BlobNotFound", "Blob was not found"))
+      blob <- pds.repo.BlobStore.read(env, did, cid)
     yield Response[IO](Status.Ok)
       .withEntity(blob._1)
       .withContentType(`Content-Type`(MediaType.unsafeParse(blob._2)))

@@ -368,14 +368,7 @@ object RepoApi:
         s"${value.mediaType.mainType}/${value.mediaType.subType}")
         .getOrElse("application/octet-stream")
       cid = Cid.ofRaw(bytes)
-      now <- env.now
-      _ <- env.database.transact { connection =>
-        Accounts.requireActive(connection, session.did)
-        Sql.update(connection,
-          """INSERT INTO blobs(did, cid, mime_type, size, content, created_at)
-             VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (did, cid) DO NOTHING""",
-          session.did, cid.toString, mime, bytes.length.toLong, bytes, now)
-      }
+      _ <- pds.repo.BlobStore.store(env, session.did, cid, mime, bytes)
       response <- Xrpc.ok(Json.obj("blob" -> Json.obj(
         "$type" -> Json.fromString("blob"),
         "ref" -> Json.obj("$link" -> Json.fromString(cid.toString)),

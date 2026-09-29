@@ -39,6 +39,8 @@ fallback, a pooled connection lifecycle and checksummed migrations.
     flake.
 11. **Record validation** — a trusted, checksummed Lexicon catalog, plus
     authenticated resolution and admission of Lexicons published outside it.
+12. **Blob backends** — blobs in the database or in an S3-compatible bucket,
+    with a durable deletion queue.
 
 ## Next
 
@@ -57,7 +59,6 @@ fallback, a pooled connection lifecycle and checksummed migrations.
 
 ### Storage and scale
 
-- An S3-compatible blob backend, so blobs stop living in the database.
 - Shared rate-limit counters (Redis), so several instances enforce one budget.
 - Block garbage collection, with a retention window that keeps firehose backfill
   intact.

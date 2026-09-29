@@ -65,7 +65,38 @@ referencing it stays intact, and the state is readable with
 
 ## Storage
 
-Blobs live in the database — `bytea` on PostgreSQL, `blob` on SQLite — keyed by
-`(did, cid)` with their size and content type. Deleting an account removes its
-blobs with it. An external object store is [on the
-roadmap](/roadmap/).
+By default blobs live in the database — `bytea` on PostgreSQL, `blob` on
+SQLite — keyed by `(did, cid)` with their size and content type.
+
+Setting `PDS_S3_BUCKET` moves them to an S3-compatible bucket instead, which is
+what a server of any size wants: the database stops carrying binary payloads,
+and the bucket can be served through a CDN.
+
+| Variable | Meaning |
+| --- | --- |
+| `PDS_S3_BUCKET` | the bucket; setting it selects the S3 backend |
+| `PDS_S3_REGION` | signing region |
+| `PDS_S3_ENDPOINT` | endpoint URL; defaults to `https://s3.<region>.amazonaws.com` |
+| `PDS_S3_ACCESS_KEY_ID` | access key |
+| `PDS_S3_SECRET_ACCESS_KEY` | secret key |
+| `PDS_S3_PATH_STYLE` | `false` for virtual-host addressing; path style by default |
+
+Naming a bucket requires the region and both credentials; a partial set is a
+startup error rather than a silent fallback to the database. Requests are signed
+with AWS Signature Version 4 over the payload, so any compatible
+implementation — MinIO, R2, Backblaze B2 — works by pointing `PDS_S3_ENDPOINT`
+at it.
+
+Objects are keyed `blobs/<did>/<cid>`, with `:` replaced in the DID. The object
+is written **before** the row that names it, so a failure leaves an
+unreferenced object rather than a row pointing at nothing; because blobs are
+content-addressed, a retry rewrites identical bytes. An upload the bucket
+refuses is reported as `BlobStoreFailed` and creates no row.
+
+The backend is recorded per blob, so a server that switches to a bucket keeps
+serving everything it stored earlier from the database.
+
+Deleting an account cannot wait on a remote call inside its transaction, so the
+objects are queued in `blob_deletions` by the same transaction that removes the
+rows. A background sweep drains the queue every thirty seconds, retrying
+failures with a backoff. Nothing is forgotten if the process stops midway.

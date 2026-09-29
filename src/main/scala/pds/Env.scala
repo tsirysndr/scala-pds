@@ -4,7 +4,7 @@ import cats.effect.IO
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
 import pds.lexicon.Schemas
-import pds.storage.Database
+import pds.storage.{Database, S3}
 
 final case class Env(
     config: ServerConfig,
@@ -12,6 +12,7 @@ final case class Env(
     sealing: Sealing,
     net: Net,
     resolver: Resolver,
-    schemas: Schemas
+    schemas: Schemas,
+    blobs: Option[S3] = None
 ):
   def now: IO[Long] = IO.realTime.map(_.toMillis)
