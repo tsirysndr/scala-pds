@@ -9,6 +9,7 @@ import org.http4s.circe.*
 import pds.api.RateLimit
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
+import pds.lexicon.Schemas
 import pds.storage.{Database, DatabaseConfig, Migrations}
 
 /** A complete PDS wired to a temporary SQLite file and a scripted HTTP client. */
@@ -30,7 +31,8 @@ object TestEnv:
 
   def harness(
       overrides: Map[String, String] = Map.empty,
-      client: Client[IO] = routes()
+      client: Client[IO] = routes(),
+      lexicons: Option[String => IO[Either[String, io.circe.Json]]] = None
   ): Resource[IO, Harness] =
     val settings = Map(
       "PDS_HOSTNAME" -> "pds.example.com",
@@ -47,7 +49,10 @@ object TestEnv:
       sealing <- Resource.eval(IO.fromEither(
         Sealing.fromBase64(Sealing.generate()).left.map(new IllegalArgumentException(_))))
       net = new Net(client, allowPrivate = true)
-      env = Env(config, database, sealing, net, new Resolver(net, database, config))
+      identity = new Resolver(net, database, config)
+      schemas <- Resource.eval(
+        lexicons.fold(Schemas.network(net, identity))(Schemas.create))
+      env = Env(config, database, sealing, net, identity, schemas)
       limiter <- Resource.eval(RateLimit.create(100000))
     yield Harness(env, PdsApp(env, client, limiter, None))
 

@@ -9,6 +9,7 @@ import pds.accounts.Email
 import pds.api.RateLimit
 import pds.crypto.Sealing
 import pds.identity.{Net, Resolver}
+import pds.lexicon.Schemas
 import pds.storage.{Backend, Database, DatabaseConfig, Migrations, Sql}
 import scala.concurrent.duration.*
 
@@ -39,8 +40,10 @@ object Main extends IOApp:
       val allowPrivate = !config.secure ||
         environment.get("PDS_ALLOW_PRIVATE_NETWORK").contains("true")
       val net = new Net(client, allowPrivate)
-      val env = Env(config, database, sealing, net, new Resolver(net, database, config))
+      val identity = new Resolver(net, database, config)
       for
+        schemas <- Schemas.network(net, identity)
+        env = Env(config, database, sealing, net, identity, schemas)
         applied <- Migrations.run(database)
         _ <- IO.println(s"scala-pds: ${databaseConfig.backend} storage, " +
           s"${applied.length} migration(s) applied")

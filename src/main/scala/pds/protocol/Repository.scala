@@ -149,6 +149,35 @@ object Repository:
       sink.update(cid, bytes)
       Right(cid)
 
+  /** Reads a `getRecord` proof: the commit must be signed by `key`, and the
+    * tree walk to `path` must be satisfiable from the archive's own blocks.
+    * `Right(None)` is a proof the record is absent.
+    */
+  def proveRecord(
+      archive: Array[Byte], did: String, key: PublicKey, collection: String, recordKey: String
+  ): Either[String, (Commit, Option[(Cid, Node)])] =
+    for
+      parsed <- Car.read(archive)
+      (roots, blocks) = parsed
+      root <- roots.headOption.toRight("The proof has no root")
+      store = blocks.toMap
+      bytes <- store.get(root).toRight("The proof is missing its root block")
+      node <- Cbor.decode(bytes)
+      commit <- Commit.decode(node)
+      _ <- Either.cond(commit.did == did, (), "The proof is for another repository")
+      _ <- Either.cond(commit.verify(key), (), "The proof commit does not verify")
+      reader = new Mst.Store(store.get)
+      tree <- reader.tree(commit.data)
+      found <- MstOps.get(reader, tree, s"$collection/$recordKey")
+      record <- found match
+        case None => Right(None)
+        case Some(cid) =>
+          for
+            bytes <- store.get(cid).toRight("The proof is missing the record block")
+            value <- Cbor.decode(bytes)
+          yield Some(cid -> value)
+    yield (commit, record)
+
   /** Verifies a commit chain head against a signing key and its own tree. */
   def verify(commit: Commit, key: PublicKey, reader: Cid => Option[Array[Byte]]): Either[String, Unit] =
     val store = new Mst.Store(reader)

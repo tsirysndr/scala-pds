@@ -49,11 +49,48 @@ object RepoApi:
     if !json.isObject then throw XrpcError.invalidRequest(s"$name must be an object")
     Node.fromJson(json).fold(message => throw XrpcError.invalidRequest(message), identity)
 
+  /** The catalog to validate `collection` against. Trusted schemas need no
+    * network; anything else is resolved only when `validate` demands it, and
+    * otherwise used only if it is already cached. Resolution happens here,
+    * outside every write transaction.
+    */
+  private def catalogFor(
+      env: Env, collection: String, validate: Option[Boolean]
+  ): IO[Option[Catalog]] =
+    if validate.contains(false) then IO.pure(None)
+    else if Catalog.trusted.contains(collection) then IO.pure(Some(Catalog.trusted))
+    else
+      env.now.flatMap { now =>
+        if validate.contains(true) then
+          env.schemas.catalog(collection, now).flatMap {
+            case Right(catalog) => IO.pure(Some(catalog))
+            case Left(reason) =>
+              IO.raiseError(XrpcError.named(Status.BadRequest, "InvalidRecord", reason))
+          }
+        else env.schemas.known(collection, now)
+      }
+
+  private def catalogsFor(
+      env: Env, writes: Vector[(String, Option[Boolean])]
+  ): IO[Map[String, Catalog]] =
+    writes.distinct.foldLeft(IO.pure(Map.empty[String, Catalog])) {
+      case (acc, (collection, validate)) =>
+        for
+          current <- acc
+          found <- if current.contains(collection) then IO.pure(None)
+            else catalogFor(env, collection, validate)
+        yield found.fold(current)(catalog => current.updated(collection, catalog))
+    }
+
   /** The `$type` and record-key rules always apply; schema validation applies
-    * when the collection has a known Lexicon, or is demanded by `validate`.
+    * when a catalog was resolved for the collection.
     */
   private def validated(
-      record: Node, collection: String, recordKey: String, validate: Option[Boolean]
+      catalog: Option[Catalog],
+      record: Node,
+      collection: String,
+      recordKey: String,
+      validate: Option[Boolean]
   ): Option[String] =
     record.recordType match
       case Some(value) if value == collection => ()
@@ -61,10 +98,14 @@ object RepoApi:
         throw XrpcError.invalidRequest(s"Record $$type $value does not match the collection")
       case None if validate.contains(false) => ()
       case None => throw XrpcError.invalidRequest("Records need a $type matching the collection")
-    Validator.validateRecord(Catalog.trusted, collection, recordKey, record, validate) match
-      case Right(status) => status
-      case Left(invalid) =>
-        throw XrpcError.named(Status.BadRequest, "InvalidRecord", invalid.message)
+    catalog match
+      case None if validate.contains(false) => None
+      case None                             => Some("unknown")
+      case Some(found) =>
+        Validator.validateRecord(found, collection, recordKey, record, validate) match
+          case Right(status) => status
+          case Left(invalid) =>
+            throw XrpcError.named(Status.BadRequest, "InvalidRecord", invalid.message)
 
   private def collectionOf(body: Json): String =
     val value = Xrpc.requireField(body, "collection")
@@ -130,7 +171,8 @@ object RepoApi:
       collection = collectionOf(body)
       key = recordKey(body, generate = true)
       record = recordFrom(body)
-      status = validated(record, collection, key, Xrpc.flag(body, "validate"))
+      catalog <- catalogFor(env, collection, Xrpc.flag(body, "validate"))
+      status = validated(catalog, record, collection, key, Xrpc.flag(body, "validate"))
       applied <- write(env, did, Vector(Write.Create(collection, key, record)),
         swap(body, "swapCommit"))
       response <- Xrpc.ok(commitResult(env, did, applied, s"$collection/$key", status))
@@ -144,7 +186,8 @@ object RepoApi:
       collection = collectionOf(body)
       key = recordKey(body, generate = false)
       record = recordFrom(body)
-      status = validated(record, collection, key, Xrpc.flag(body, "validate"))
+      catalog <- catalogFor(env, collection, Xrpc.flag(body, "validate"))
+      status = validated(catalog, record, collection, key, Xrpc.flag(body, "validate"))
       swapRecord = Xrpc.field(body, "swapRecord")
       applied <- env.database.transact { connection =>
         Accounts.requireActive(connection, did)
@@ -206,9 +249,15 @@ object RepoApi:
         XrpcError.invalidRequest("writes is required"))
       _ <- IO.raiseUnless(items.nonEmpty && items.length <= 200)(
         XrpcError.invalidRequest("A batch holds between one and two hundred writes"))
-      parsed = items.map(parseWrite)
-      writes = parsed.map(_._1)
-      statuses = parsed.flatMap((item, status) => status.map(item.path -> _)).toMap
+      mode = Xrpc.flag(body, "validate")
+      writes = items.map(parseWrite)
+      catalogs <- catalogsFor(env, writes.collect {
+        case write if write.action != "delete" => write.collection -> mode
+      })
+      statuses = writes.collect { case write if write.action != "delete" =>
+        write.path -> validated(catalogs.get(write.collection), recordOf(write),
+          write.collection, write.recordKey, mode)
+      }.flatMap((path, status) => status.map(path -> _)).toMap
       applied <- write(env, did, writes, swap(body, "swapCommit"))
       response <- Xrpc.ok(Json.obj(
         "commit" -> Json.obj(
@@ -230,22 +279,23 @@ object RepoApi:
       ))
     yield response
 
-  private def parseWrite(item: Json): (Write, Option[String]) =
+  private def parseWrite(item: Json): Write =
     val kind = item.hcursor.get[String]("$type").toOption
       .getOrElse(throw XrpcError.invalidRequest("Every write needs a $type"))
     val collection = collectionOf(item)
     kind match
       case "com.atproto.repo.applyWrites#create" =>
-        val key = recordKey(item, generate = true)
-        val record = recordFrom(item, "value")
-        (Write.Create(collection, key, record), validated(record, collection, key, None))
+        Write.Create(collection, recordKey(item, generate = true), recordFrom(item, "value"))
       case "com.atproto.repo.applyWrites#update" =>
-        val key = recordKey(item, generate = false)
-        val record = recordFrom(item, "value")
-        (Write.Update(collection, key, record), validated(record, collection, key, None))
+        Write.Update(collection, recordKey(item, generate = false), recordFrom(item, "value"))
       case "com.atproto.repo.applyWrites#delete" =>
-        (Write.Delete(collection, recordKey(item, generate = false)), None)
+        Write.Delete(collection, recordKey(item, generate = false))
       case other => throw XrpcError.invalidRequest(s"Unsupported write type $other")
+
+  private def recordOf(write: Write): Node = write match
+    case Write.Create(_, _, record) => record
+    case Write.Update(_, _, record) => record
+    case Write.Delete(_, _)         => Node.Null
 
   private def getRecord(env: Env, request: Request[IO]): IO[Response[IO]] =
     for

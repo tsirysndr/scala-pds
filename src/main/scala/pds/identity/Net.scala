@@ -54,6 +54,17 @@ final class Net(client: Client[IO], allowPrivate: Boolean, val maxBytes: Long = 
       }.handleError(_ => None)
     }
 
+  /** Raw bytes with an explicit ceiling, for signed CAR proofs. */
+  def getBytes(url: String, limit: Long): IO[Option[Array[Byte]]] =
+    checkUrl(url).flatMap { uri =>
+      client.run(Request[IO](Method.GET, uri)).use { response =>
+        if response.status == Status.Ok then
+          response.body.take(limit + 1).compile.to(Array)
+            .map(bytes => Option.when(bytes.length <= limit)(bytes))
+        else IO.pure(None)
+      }.handleError(_ => None)
+    }
+
   def getJson(url: String): IO[Option[Json]] =
     getText(url, Some(MediaType.application.json)).map(_.flatMap(io.circe.parser.parse(_).toOption))
 
