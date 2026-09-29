@@ -2,6 +2,7 @@ package pds.storage
 
 import cats.effect.{IO, Ref}
 import io.circe.Json
+import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 import org.http4s.*
 import org.http4s.client.Client
@@ -33,13 +34,33 @@ class S3Suite extends munit.CatsEffectSuite:
       val key = request.uri.path.renderString.stripPrefix("/pds-blobs/")
       val headers = request.headers.headers
         .map(header => header.name.toString.toLowerCase -> header.value).toMap
+      // Verify like the real service: recompute the signature from what was
+      // actually received. A header that was signed but then replaced on the
+      // way out — a content type from an entity encoder, say — fails here.
+      request.body.compile.to(Array).flatMap { received =>
+        val authorization = headers.getOrElse("authorization", "")
+        val signed = authorization.split("SignedHeaders=").lift(1)
+          .map(_.takeWhile(_ != ',')).getOrElse("")
+        val moment = ZonedDateTime.parse(headers.getOrElse("x-amz-date", ""),
+          DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC))
+        val expected = S3.sign(config, request.method.name, request.uri, received,
+          Option.when(signed.contains("content-type"))(headers.getOrElse("content-type", "")),
+          moment).toMap.getOrElse("Authorization", "")
+        if expected != authorization then
+          IO.pure(Response[IO](Status.Forbidden)
+            .withEntity("<Error><Code>SignatureDoesNotMatch</Code></Error>"))
+        else route(request, key, headers, received)
+      }
+    })
+
+    private def route(
+        request: Request[IO], key: String, headers: Map[String, String], received: Array[Byte]
+    ): IO[Response[IO]] =
       seen.update(_ :+ (request.method.name, key, headers)) *> (request.method match
         case Method.PUT =>
-          request.body.compile.to(Array).flatMap { bytes =>
-            objects.update(_.updated(key, bytes ->
-              request.contentType.map(_.mediaType.toString).getOrElse("application/octet-stream")))
-              .as(Response[IO](Status.Ok))
-          }
+          objects.update(_.updated(key, received ->
+            headers.getOrElse("content-type", "application/octet-stream")))
+            .as(Response[IO](Status.Ok))
         case Method.GET =>
           objects.get.map(_.get(key) match
             case Some((bytes, mime)) => Response[IO](Status.Ok).withEntity(bytes)
@@ -47,7 +68,6 @@ class S3Suite extends munit.CatsEffectSuite:
         case Method.DELETE =>
           objects.update(_.removed(key)).as(Response[IO](Status.NoContent))
         case _ => IO.pure(Response[IO](Status.MethodNotAllowed)))
-    })
 
   private def bucket: IO[(Bucket, Ref[IO, Map[String, (Array[Byte], String)]],
       Ref[IO, Vector[(String, String, Map[String, String])]])] =

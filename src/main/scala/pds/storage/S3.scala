@@ -83,11 +83,14 @@ final class S3(config: S3Config, client: Client[IO]):
         case Left(_) => IO.pure(Left("The object URL is not valid"))
         case Right(target) =>
           val headers = sign(config, method.name, target, payload, contentType, moment)
-          val request = headers.foldLeft(Request[IO](method, target)) { (acc, header) =>
+          val carrying = body.fold(Request[IO](method, target))(bytes =>
+            Request[IO](method, target).withEntity(bytes))
+          // The signed headers go on last: an entity encoder sets its own
+          // content type, and replacing a signed header breaks the signature.
+          val request = headers.foldLeft(carrying) { (acc, header) =>
             acc.putHeaders(Header.Raw(CIString(header._1), header._2))
           }
-          val withBody = body.fold(request)(request.withEntity)
-          client.run(withBody).use { response =>
+          client.run(request).use { response =>
             response.body.compile.to(Array).map { bytes =>
               if response.status.isSuccess then Right(bytes)
               else Left(s"${response.status.code}: ${Encoding.text(bytes).take(256)}")
