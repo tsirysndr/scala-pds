@@ -6,10 +6,10 @@
   outputs =
     { self, nixpkgs }:
     let
+      # nixpkgs dropped x86_64-darwin in 26.11; Intel Macs need a 26.05 input.
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
 
