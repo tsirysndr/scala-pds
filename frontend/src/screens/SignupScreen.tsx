@@ -24,7 +24,7 @@ export function SignupScreen({
 }) {
   const action = useAction();
   const setSignup = useSetAtom(signupModeAtom);
-  const { run, buttonProps, notice } = usePending();
+  const { run, buttonProps, notice, pending } = usePending();
   const domain = session["user-domain"];
 
   const inviteRequired = session["invite-required"];
@@ -130,6 +130,10 @@ export function SignupScreen({
           size="lg"
           radius="sm"
           {...buttonProps("signup")}
+          /* Validation runs before the request starts, so the click would
+             otherwise sit with no feedback until it finishes. isSubmitting
+             covers the whole submit, from the click until the work settles. */
+          isLoading={form.formState.isSubmitting || pending === "signup"}
           className="mt-1 font-medium"
         >
           Create account

@@ -55,6 +55,37 @@ describe("signup", () => {
     expect(screen.getByText(/Your handle will be carol\.pds\.example\.com/i)).toBeInTheDocument();
   });
 
+  it("spins the create button while the request is in flight", async () => {
+    stubFetch({
+      "/account/session": () => [200, session()],
+      "/account/action/signup": () => [
+        200,
+        session({ stage: "authenticated", handle: "frank.pds.example.com" }),
+      ],
+    });
+
+    // The stub answers instantly, so hold the signup call open long enough to
+    // observe the button while the request is still outstanding.
+    const immediate = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("signup")) await new Promise((r) => setTimeout(r, 50));
+      return immediate(input, init);
+    }) as typeof fetch;
+
+    render(<App client={client()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
+    await userEvent.type(screen.getByLabelText(/Username/), "Frank");
+    await userEvent.type(screen.getByLabelText(/Email address/), "frank@example.com");
+    await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
+    await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
+
+    const button = screen.getByRole("button", { name: "Create account" });
+    await userEvent.click(button);
+
+    expect(button).toHaveAttribute("data-loading", "true");
+    await waitFor(() => expect(screen.getByText("frank.pds.example.com")).toBeInTheDocument());
+  });
+
   it("rejects short usernames, bad emails and weak passwords before posting", async () => {
     const calls = stubFetch({ "/account/session": () => [200, session()] });
     render(<App client={client()} />);
