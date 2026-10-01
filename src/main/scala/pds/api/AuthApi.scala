@@ -58,6 +58,16 @@ object AuthApi:
     */
   private def requestId(id: String, token: String): String = s"$id.$token"
 
+  /** The WebAuthn options themselves.
+    *
+    * `toCredentialsCreateJson` and `toCredentialsGetJson` already wrap their
+    * result in `publicKey`, ready to hand to `navigator.credentials`. The
+    * contract carries the options alone, so wrapping again would nest it twice
+    * and a client reading `publicKey.challenge` would find nothing.
+    */
+  private def credentialOptions(options: Json): Json =
+    options.hcursor.downField("publicKey").focus.getOrElse(options)
+
   private def splitRequestId(value: String): (String, String) =
     value.split("\\.", 2) match
       // An empty half is not a usable half: refuse rather than pass it on.
@@ -90,7 +100,7 @@ object AuthApi:
       }
       response <- Xrpc.ok(Json.obj(
         "requestId" -> Json.fromString(requestId(ceremony.id, token)),
-        "publicKey" -> ceremony.options))
+        "publicKey" -> credentialOptions(ceremony.options)))
     yield response
 
   private def finishPasskeyLogin(env: Env, request: Request[IO]): IO[Response[IO]] =
@@ -213,7 +223,7 @@ object AuthApi:
       }
       response <- Xrpc.ok(Json.obj(
         "requestId" -> Json.fromString(requestId(ceremony.id, token)),
-        "publicKey" -> ceremony.options))
+        "publicKey" -> credentialOptions(ceremony.options)))
     yield response
 
   private def finishPasskeyRegistration(env: Env, request: Request[IO]): IO[Response[IO]] =
