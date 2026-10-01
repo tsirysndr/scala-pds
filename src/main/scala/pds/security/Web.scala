@@ -58,8 +58,13 @@ object Web:
 
   def asset(path: String): Option[Response[IO]] =
     assets.get(path).filter(_._2.nonEmpty).map { (mime, body) =>
+      // The bundle is served under a fixed name, so a CDN in front must
+      // revalidate on every fetch or a deploy leaves stale JavaScript at the
+      // edge until its default TTL runs out.
       Response[IO](Status.Ok).withEntity(body)
-        .putHeaders(Header.Raw(CIString("Content-Type"), mime))
+        .putHeaders(
+          Header.Raw(CIString("Content-Type"), mime),
+          Header.Raw(CIString("Cache-Control"), "no-cache"))
     }
 
   /** Same-origin enforcement for state-changing JSON posts. */
