@@ -30,7 +30,9 @@ final case class ServerConfig private (
     blobMaxSize: Long,
     rateLimitPerMinute: Int,
     firehoseRetentionHours: Int,
-    accessLog: Boolean
+    accessLog: Boolean,
+    webauthnRpId: Option[String],
+    webauthnOrigins: Vector[String]
 ):
   val serviceDid: String = s"did:web:$hostname"
   def emailEnabled: Boolean = emailEndpoint.isDefined
@@ -130,7 +132,15 @@ object ServerConfig:
       blobMaxSize = blobMaxSize,
       rateLimitPerMinute = rateLimit,
       firehoseRetentionHours = retention,
-      accessLog = flag(env, "PDS_ACCESS_LOG", default = true)
+      accessLog = flag(env, "PDS_ACCESS_LOG", default = true),
+      // A credential is bound to its relying party for life, and a browser only
+      // uses one whose RP ID is the page's own domain or a parent of it. Set
+      // this to the domain shared with any sign-in page in front of this node
+      // so one credential works from both.
+      webauthnRpId = env.get("PDS_WEBAUTHN_RP_ID")
+        .map(_.trim.toLowerCase(Locale.ROOT)).filter(_.nonEmpty),
+      webauthnOrigins = env.getOrElse("PDS_WEBAUTHN_ORIGINS", "")
+        .split(",").toVector.map(_.trim).filter(_.nonEmpty)
     )
 
   private def flag(env: Map[String, String], name: String, default: Boolean): Boolean =

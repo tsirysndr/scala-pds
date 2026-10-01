@@ -114,3 +114,23 @@ class ServerConfigSuite extends munit.FunSuite:
         "PDS_HOSTNAME" -> "pds.example.com",
         "PDS_RESERVED_HANDLES" -> value)).left.toOption).isDefined)
   }
+
+  test("the WebAuthn relying party is unset until configured") {
+    val config = ServerConfig.fromEnv(Map.empty).toOption.get
+    assertEquals(config.webauthnRpId, None)
+    assertEquals(config.webauthnOrigins, Vector.empty)
+  }
+
+  test("the relying party and the origins allowed to drive a ceremony are read") {
+    // A credential is bound to its RP ID for life, and a browser only uses one
+    // whose RP ID is the page's own domain or a parent of it, so a shared
+    // sign-in page in front of several nodes needs the common parent.
+    val config = ServerConfig.fromEnv(Map(
+      "PDS_WEBAUTHN_RP_ID" -> "  Rocksky.Social ",
+      "PDS_WEBAUTHN_ORIGINS" -> "https://rocksky.social, ,https://www.rocksky.social"
+    )).toOption.get
+    assertEquals(config.webauthnRpId, Some("rocksky.social"))
+    assertEquals(
+      config.webauthnOrigins,
+      Vector("https://rocksky.social", "https://www.rocksky.social"))
+  }

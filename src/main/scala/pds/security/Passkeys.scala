@@ -31,7 +31,36 @@ object Passkeys:
   private def identity(env: Env): Option[(String, String)] =
     val url = env.config.publicUrl
     val host = url.dropWhile(_ != '/').dropWhile(_ == '/').takeWhile(_ != ':')
-    Option.when(env.config.secure || host == "localhost" || host == "127.0.0.1")(host -> url)
+    Option.when(env.config.secure || host == "localhost" || host == "127.0.0.1")(
+      relyingPartyId(env, host) -> url)
+
+  /** The relying party a credential is bound to.
+    *
+    * A credential is bound to its RP ID for life, and a browser only uses one
+    * whose RP ID equals the page's own domain or is a parent of it. Left at this
+    * host, a credential registered here can never be used from a shared sign-in
+    * page in front of several nodes; the common parent works from both. A
+    * configured value must still be this host or a parent of it, or this server
+    * would claim credentials for a domain it does not answer for.
+    */
+  private def relyingPartyId(env: Env, host: String): String =
+    env.config.webauthnRpId match
+      case Some(configured)
+          if configured == host ||
+            (configured.contains(".") && host.endsWith(s".$configured")) =>
+        configured
+      case Some(configured) =>
+        throw XrpcError.invalidRequest(
+          s"PDS_WEBAUTHN_RP_ID must be this host or a parent of it, got '$configured'")
+      case None => host
+
+  /** Origins allowed to run a ceremony, this server's own always among them.
+    *
+    * The page driving the ceremony need not be this node: a console in front of
+    * the fleet is a different origin, and clientDataJSON carries the page's.
+    */
+  private def allowedOrigins(env: Env, own: String): Set[String] =
+    env.config.webauthnOrigins.toSet + own
 
   private def relyingParty(env: Env): Option[(String, String)] = identity(env)
 
@@ -41,7 +70,7 @@ object Passkeys:
     RelyingParty.builder()
       .identity(RelyingPartyIdentity.builder().id(host).name(host).build())
       .credentialRepository(new Repository(connection))
-      .origins(Set(origin).asJava)
+      .origins(allowedOrigins(env, origin).asJava)
       .allowOriginPort(true)
       .build()
 
