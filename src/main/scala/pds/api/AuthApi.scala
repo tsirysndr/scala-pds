@@ -58,6 +58,19 @@ object AuthApi:
     */
   private def requestId(id: String, token: String): String = s"$id.$token"
 
+  /** The credential with `clientExtensionResults` filled in when absent.
+    *
+    * The WebAuthn library's credential model refuses to construct without the
+    * field, yet a client that requested no extensions reasonably leaves it out.
+    * Without this, such a credential is refused before a signature is ever
+    * looked at, as an invalid passkey.
+    */
+  private def credentialJson(credential: Json): String =
+    credential.mapObject { o =>
+      if o.contains("clientExtensionResults") then o
+      else o.add("clientExtensionResults", Json.obj())
+    }.noSpaces
+
   /** The WebAuthn options themselves.
     *
     * `toCredentialsCreateJson` and `toCredentialsGetJson` already wrap their
@@ -112,7 +125,7 @@ object AuthApi:
       body <- env.database.transact { connection =>
         val (id, token) = splitRequestId(Xrpc.requireField(input, "requestId"))
         val did = Passkeys.finishAuthentication(env, connection, id, token,
-          credential.noSpaces, now)
+          credentialJson(credential), now)
         val account = Accounts.requireActive(connection, did)
 
         // A passkey replaces the password, not a factor on top of it.
@@ -235,7 +248,7 @@ object AuthApi:
         XrpcError.invalidRequest("credential is required"))
       passkey <- env.database.transact { connection =>
         val (id, token) = splitRequestId(Xrpc.requireField(input, "requestId"))
-        Passkeys.finishRegistration(env, connection, id, token, credential.noSpaces, now)
+        Passkeys.finishRegistration(env, connection, id, token, credentialJson(credential), now)
       }
       response <- Xrpc.ok(Json.obj("passkey" -> passkey))
     yield response
