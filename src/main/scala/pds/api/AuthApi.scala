@@ -3,7 +3,7 @@ package pds.api
 import cats.effect.IO
 import io.circe.Json
 import org.http4s.{Request, Response}
-import pds.accounts.{Accounts, Session}
+import pds.accounts.{Accounts, Credential, Session, Sessions}
 import pds.security.{Passkeys, Totp}
 import pds.{Env, XrpcError}
 
@@ -32,7 +32,9 @@ object AuthApi:
       Endpoint.procedure(beginPasskeyRegistration(env, _)),
     "social.rocksky.auth.finishPasskeyRegistration" ->
       Endpoint.procedure(finishPasskeyRegistration(env, _)),
-    "social.rocksky.auth.deletePasskey" -> Endpoint.procedure(deletePasskey(env, _))
+    "social.rocksky.auth.deletePasskey" -> Endpoint.procedure(deletePasskey(env, _)),
+    "social.rocksky.auth.beginPasskeyLogin" -> Endpoint.procedure(beginPasskeyLogin(env, _)),
+    "social.rocksky.auth.finishPasskeyLogin" -> Endpoint.procedure(finishPasskeyLogin(env, _))
   )
 
   /** App passwords are issued to clients, so they are not the owner proving who
@@ -63,6 +65,60 @@ object AuthApi:
       case _ =>
         throw XrpcError.named(org.http4s.Status.BadRequest, "RequestExpired",
           "That passkey request is not valid")
+
+  // --- signing in with a passkey -------------------------------------------
+  // Unauthenticated by design: these are how a session begins.
+
+  private def beginPasskeyLogin(env: Env, request: Request[IO]): IO[Response[IO]] =
+    for
+      _ <- IO.raiseUnless(Passkeys.available(env))(
+        XrpcError.named(org.http4s.Status.NotImplemented, "NotSupported",
+          "This server is not configured for passkeys"))
+      input <- Xrpc.body(request)
+      now <- env.now
+      token <- IO(pds.crypto.Hash.randomBase32(32))
+      ceremony <- env.database.transact { connection =>
+        // A challenge is offered per account here, so the identifier is
+        // required. The same answer is given whether the account is absent or
+        // simply has no passkey: a sign-in endpoint must not say who exists.
+        val identifier = Xrpc.requireField(input, "identifier").toLowerCase
+        val account = Accounts.byIdentifier(connection, identifier).getOrElse(
+          throw XrpcError.named(org.http4s.Status.Unauthorized, "AccountNotFound",
+            "No passkey is registered for that account"))
+        Passkeys.beginAuthentication(env, connection, account.did, token, now)
+      }
+      response <- Xrpc.ok(Json.obj(
+        "requestId" -> Json.fromString(requestId(ceremony.id, token)),
+        "publicKey" -> ceremony.options))
+    yield response
+
+  private def finishPasskeyLogin(env: Env, request: Request[IO]): IO[Response[IO]] =
+    for
+      input <- Xrpc.body(request)
+      now <- env.now
+      credential <- IO.fromOption(input.hcursor.downField("credential").focus)(
+        XrpcError.invalidRequest("credential is required"))
+      body <- env.database.transact { connection =>
+        val (id, token) = splitRequestId(Xrpc.requireField(input, "requestId"))
+        val did = Passkeys.finishAuthentication(env, connection, id, token,
+          credential.noSpaces, now)
+        val account = Accounts.requireActive(connection, did)
+
+        // A passkey replaces the password, not a factor on top of it.
+        if Totp.enabled(connection, did) then
+          val supplied = input.hcursor.get[String]("totpCode").toOption
+            .orElse(input.hcursor.get[String]("authFactorToken").toOption)
+            .getOrElse(throw XrpcError.named(org.http4s.Status.Unauthorized,
+              "AuthFactorTokenRequired", "A two-factor code is required"))
+          Totp.verify(env, connection, did, supplied, now)
+
+        val tokens = Sessions.issue(env, connection, account, Credential.Access, None, now)
+        Sessions.describe(env, account, Credential.Access).deepMerge(Json.obj(
+          "accessJwt" -> Json.fromString(tokens.accessJwt),
+          "refreshJwt" -> Json.fromString(tokens.refreshJwt)))
+      }
+      response <- Xrpc.ok(body)
+    yield response
 
   private def getTwoFactor(env: Env, request: Request[IO]): IO[Response[IO]] =
     for

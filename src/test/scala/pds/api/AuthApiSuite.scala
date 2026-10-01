@@ -49,7 +49,9 @@ class AuthApiSuite extends munit.CatsEffectSuite:
           "social.rocksky.auth.listPasskeys" -> Kind.Query,
           "social.rocksky.auth.beginPasskeyRegistration" -> Kind.Procedure,
           "social.rocksky.auth.finishPasskeyRegistration" -> Kind.Procedure,
-          "social.rocksky.auth.deletePasskey" -> Kind.Procedure
+          "social.rocksky.auth.deletePasskey" -> Kind.Procedure,
+          "social.rocksky.auth.beginPasskeyLogin" -> Kind.Procedure,
+          "social.rocksky.auth.finishPasskeyLogin" -> Kind.Procedure
         )
         assertEquals(endpoints.keySet, expected.keySet)
         expected.foreach((nsid, kind) =>
@@ -142,6 +144,42 @@ class AuthApiSuite extends munit.CatsEffectSuite:
       yield
         assertEquals(anonymous._1, Status.Unauthorized)
         assertEquals(listed._1, Status.Unauthorized)
+    }
+  }
+
+  test("a passkey sign-in needs no session, and will not say who exists") {
+    harness().use { server =>
+      for
+        _ <- signIn(server)
+        // Unauthenticated: this is how a session begins.
+        unknown <- server.json(post("/xrpc/social.rocksky.auth.beginPasskeyLogin", Json.obj(
+          "identifier" -> Json.fromString("nobody.pds.example.com"))))
+        missing <- server.json(post("/xrpc/social.rocksky.auth.beginPasskeyLogin", Json.obj()))
+        bad <- server.json(post("/xrpc/social.rocksky.auth.finishPasskeyLogin", Json.obj(
+          "requestId" -> Json.fromString(".no-handle"),
+          "credential" -> Json.obj())))
+      yield
+        // An account that does not exist and one with no passkey must look the
+        // same from outside.
+        assertEquals(unknown._1, Status.Unauthorized)
+        assertEquals(unknown._2.hcursor.get[String]("error").toOption, Some("AccountNotFound"))
+
+        assertEquals(missing._1, Status.BadRequest)
+        assertEquals(bad._1, Status.BadRequest)
+        assertEquals(bad._2.hcursor.get[String]("error").toOption, Some("RequestExpired"))
+    }
+  }
+
+  test("a passkey sign-in for a real account offers a challenge") {
+    harness().use { server =>
+      for
+        _ <- signIn(server)
+        started <- server.json(post("/xrpc/social.rocksky.auth.beginPasskeyLogin", Json.obj(
+          "identifier" -> Json.fromString("alice.pds.example.com"))))
+      yield
+        assertEquals(started._1, Status.Ok)
+        assert(field(started._2, "requestId").nonEmpty)
+        assert(started._2.hcursor.downField("publicKey").focus.isDefined)
     }
   }
 
