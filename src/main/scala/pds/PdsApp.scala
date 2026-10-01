@@ -50,7 +50,7 @@ object PdsApp:
   ): HttpApp[IO] =
     val endpoints = ServerApi.endpoints(env) ++ RepoApi.endpoints(env) ++
       SyncApi.endpoints(env) ++ IdentityApi.endpoints(env) ++ AdminApi.endpoints(env) ++
-      BskyApi.endpoints(env)
+      BskyApi.endpoints(env) ++ AuthApi.endpoints(env)
 
     val routes = HttpRoutes.of[IO] {
       case request @ GET -> Root =>

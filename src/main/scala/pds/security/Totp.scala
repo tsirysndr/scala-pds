@@ -74,13 +74,7 @@ object Totp:
         "That code is not valid"))
     Sql.update(connection,
       "UPDATE account_totp SET confirmed = true, last_step = ? WHERE did = ?", counter, did)
-    val codes = Vector.fill(8)(Hash.randomBase32(16).take(26).toUpperCase)
-    Sql.update(connection, "DELETE FROM account_recovery_codes WHERE did = ?", did)
-    codes.foreach(value =>
-      Sql.update(connection,
-        "INSERT INTO account_recovery_codes(did, code_hash) VALUES (?, ?)",
-        did, Hash.digestToken(value)))
-    codes
+    issueRecoveryCodes(connection, did)
 
   /** Verifies a code or a recovery code, rate-limited and replay-protected. */
   def verify(env: Env, connection: Connection, did: String, supplied: String, now: Long): Unit =
@@ -118,6 +112,36 @@ object Totp:
   def disable(env: Env, connection: Connection, did: String, supplied: String, now: Long): Unit =
     verify(env, connection, did, supplied, now)
     Sql.update(connection, "DELETE FROM account_totp WHERE did = ?", did)
+
+  /** Issues a fresh set, discarding any that were outstanding. */
+  private def issueRecoveryCodes(connection: Connection, did: String): Vector[String] =
+    val codes = Vector.fill(8)(Hash.randomBase32(16).take(26).toUpperCase)
+    Sql.update(connection, "DELETE FROM account_recovery_codes WHERE did = ?", did)
+    codes.foreach(value =>
+      Sql.update(connection,
+        "INSERT INTO account_recovery_codes(did, code_hash) VALUES (?, ?)",
+        did, Hash.digestToken(value)))
+    codes
+
+  /** Replaces the recovery codes. Requires a current proof for the same reason
+    * disabling does: the codes are themselves a way past the factor.
+    */
+  def regenerate(
+      env: Env, connection: Connection, did: String, supplied: String, now: Long
+  ): Vector[String] =
+    verify(env, connection, did, supplied, now)
+    issueRecoveryCodes(connection, did)
+
+  /** Reported to the owner. An unconfirmed enrollment is pending rather than
+    * enabled: until it is confirmed the account still authenticates with its
+    * password alone, so a half-finished enrollment locks nobody out.
+    */
+  def state(connection: Connection, did: String): String =
+    Sql.first(connection, "SELECT confirmed FROM account_totp WHERE did = ?", did)(
+      _.bool("confirmed")) match
+      case Some(true)  => "enabled"
+      case Some(false) => "pending"
+      case None        => "disabled"
 
   def remaining(connection: Connection, did: String): Int =
     Sql.count(connection,
