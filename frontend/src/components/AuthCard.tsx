@@ -1,6 +1,11 @@
 import { AuthBackdrop } from "./AuthBackdrop";
 import type { ReactNode } from "react";
-import { Card, CardBody } from "@heroui/react";
+import { Card, CardBody, Select, SelectItem } from "@heroui/react";
+import { useAtom } from "jotai";
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { languageAtom } from "../atoms";
+import { detectLanguage, languages } from "../i18n";
 import { IconCloudLock } from "@tabler/icons-react";
 
 const widths = {
@@ -26,6 +31,14 @@ export function AuthCard({
   children,
   footer,
 }: AuthCardProps) {
+  const [stored, setStored] = useAtom(languageAtom);
+  const { t, i18n } = useTranslation();
+  const language = detectLanguage(stored || null, navigator.languages ?? []);
+
+  useEffect(() => {
+    if (i18n.language !== language) void i18n.changeLanguage(language);
+  }, [i18n, language]);
+
   return (
     <>
       <AuthBackdrop />
@@ -56,9 +69,22 @@ export function AuthCard({
         </CardBody>
       </Card>
 
-      {footer ? (
-        <div className="flex w-full max-w-[26rem] flex-col items-center gap-3">{footer}</div>
-      ) : null}
+      <div className="flex w-full max-w-[26rem] flex-col items-center gap-3">
+        {footer}
+        <Select
+          aria-label={t("common.language")}
+          size="sm"
+          variant="bordered"
+          radius="sm"
+          className="w-48 min-w-48"
+          selectedKeys={[language]}
+          onSelectionChange={(keys) => setStored(String(Array.from(keys)[0] ?? "en"))}
+        >
+          {languages.map((entry) => (
+            <SelectItem key={entry.key}>{entry.label}</SelectItem>
+          ))}
+        </Select>
+      </div>
     </div>
     </>
   );

@@ -1,90 +1,99 @@
 import { z } from "zod";
 
-const password = z
-  .string()
-  .min(8, "Passwords need at least 8 characters")
-  .max(1024, "That password is too long");
+type T = (key: string) => string;
 
-export const loginSchema = z.object({
+const password = (t: T) =>
+  z
+    .string()
+  .min(8, t("schema.passwordMin"))
+  .max(1024, t("schema.passwordLong"));
+
+export const loginSchema = (t: T) =>
+  z.object({
   identifier: z
     .string()
     .trim()
-    .min(1, "Enter your username, email address, or DID")
-    .max(2048, "That identifier is too long"),
-  password: z.string().min(1, "Enter your password").max(1024, "That password is too long"),
+    .min(1, t("schema.identifierRequired"))
+    .max(2048, t("schema.identifierLong")),
+  password: z.string().min(1, t("schema.passwordRequired")).max(1024, t("schema.passwordLong")),
 });
 
-export type LoginValues = z.infer<typeof loginSchema>;
+export type LoginValues = z.infer<ReturnType<typeof loginSchema>>;
 
-export const factorSchema = z.object({
-  code: z.string().trim().min(6, "Enter the code you received").max(64, "That code is too long"),
+export const factorSchema = (t: T) =>
+  z.object({
+  code: z.string().trim().min(6, t("schema.codeRequired")).max(64, t("schema.codeLong")),
 });
 
-export type FactorValues = z.infer<typeof factorSchema>;
+export type FactorValues = z.infer<ReturnType<typeof factorSchema>>;
 
 /** Whether an invite code is demanded follows the server, so the schema does. */
-export const signupSchema = (inviteRequired: boolean) =>
+export const signupSchema = (t: T, inviteRequired: boolean) =>
   z
     .object({
       username: z
         .string()
         .trim()
-        .min(3, "Usernames need at least three characters")
-        .max(63, "That username is too long")
+        .min(3, t("schema.usernameMin"))
+        .max(63, t("schema.usernameLong"))
         .regex(
           /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/,
-          "Use letters, numbers, and inner hyphens",
+          t("schema.usernameShape"),
         ),
       email: z
         .string()
-        .email("Enter a valid email address")
-        .max(320, "That email address is too long"),
-      password,
+        .email(t("schema.emailValid"))
+        .max(320, t("schema.emailLong")),
+      password: password(t),
       confirmPassword: z.string(),
       // When no code is required the field is not shown and stays empty, so it
       // has to validate as empty.
       inviteCode: inviteRequired
-        ? z.string().trim().min(1, "Enter your invite code").max(256, "That invite code is too long")
-        : z.string().trim().max(256, "That invite code is too long"),
+        ? z.string().trim().min(1, t("schema.inviteRequired")).max(256, t("schema.inviteLong"))
+        : z.string().trim().max(256, t("schema.inviteLong")),
     })
     .refine((value) => value.password === value.confirmPassword, {
       path: ["confirmPassword"],
-      message: "Those passwords do not match",
+      message: t("schema.noMatch"),
     });
 
 export type SignupValues = z.infer<ReturnType<typeof signupSchema>>;
 
-export const totpCodeSchema = z.object({
+export const totpCodeSchema = (t: T) =>
+  z.object({
   code: z
     .string()
     .trim()
-    .regex(/^(?:[0-9]{6}|[A-Z2-7]{26})$/, "Enter a 6-digit code or a recovery code"),
+    .regex(/^(?:[0-9]{6}|[A-Z2-7]{26})$/, t("schema.totpShape")),
 });
 
-export type TotpCodeValues = z.infer<typeof totpCodeSchema>;
+export type TotpCodeValues = z.infer<ReturnType<typeof totpCodeSchema>>;
 
-export const appPasswordSchema = z.object({
-  name: z.string().trim().min(1, "Name this app password").max(64, "That name is too long"),
+export const appPasswordSchema = (t: T) =>
+  z.object({
+  name: z.string().trim().min(1, t("schema.appPasswordName")).max(64, t("schema.passkeyNameLong")),
   privileged: z.boolean(),
 });
 
-export type AppPasswordValues = z.infer<typeof appPasswordSchema>;
+export type AppPasswordValues = z.infer<ReturnType<typeof appPasswordSchema>>;
 
-export const passkeyNameSchema = z.object({
-  name: z.string().trim().min(1, "Name this passkey").max(64, "That name is too long"),
+export const passkeyNameSchema = (t: T) =>
+  z.object({
+  name: z.string().trim().min(1, t("schema.passkeyName")).max(64, t("schema.passkeyNameLong")),
 });
 
-export type PasskeyNameValues = z.infer<typeof passkeyNameSchema>;
+export type PasskeyNameValues = z.infer<ReturnType<typeof passkeyNameSchema>>;
 
-export const passwordChangeSchema = z
+export const passwordChangeSchema = (t: T) =>
+  z
   .object({
-    currentPassword: z.string().min(1, "Enter your current password").max(1024),
-    newPassword: password,
+    currentPassword: z.string().min(1, t("schema.currentPassword")).max(1024),
+    newPassword: password(t),
     confirmPassword: z.string(),
   })
   .refine((value) => value.newPassword === value.confirmPassword, {
     path: ["confirmPassword"],
-    message: "Those passwords do not match",
+    message: t("schema.noMatch"),
   });
 
-export type PasswordChangeValues = z.infer<typeof passwordChangeSchema>;
+export type PasswordChangeValues = z.infer<ReturnType<typeof passwordChangeSchema>>;

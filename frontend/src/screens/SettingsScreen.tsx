@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Divider, Snippet, Switch } from "@heroui/react";
@@ -42,6 +43,7 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 }
 
 export function SettingsScreen({ session }: { session: Session }) {
+  const { t } = useTranslation();
   const action = useAction();
   const { run, buttonProps, notice } = usePending();
   const [enrollment, setEnrollment] = useAtom(totpEnrollmentAtom);
@@ -49,22 +51,22 @@ export function SettingsScreen({ session }: { session: Session }) {
   const [created, setCreated] = useAtom(appPasswordAtom);
 
   const appPassword = useForm<AppPasswordValues>({
-    resolver: zodResolver(appPasswordSchema),
+    resolver: zodResolver(appPasswordSchema(t)),
     defaultValues: { name: "", privileged: false },
   });
 
   const totp = useForm<TotpCodeValues>({
-    resolver: zodResolver(totpCodeSchema),
+    resolver: zodResolver(totpCodeSchema(t)),
     defaultValues: { code: "" },
   });
 
   const passkey = useForm<PasskeyNameValues>({
-    resolver: zodResolver(passkeyNameSchema),
+    resolver: zodResolver(passkeyNameSchema(t)),
     defaultValues: { name: "" },
   });
 
   const passwords = useForm<PasswordChangeValues>({
-    resolver: zodResolver(passwordChangeSchema),
+    resolver: zodResolver(passwordChangeSchema(t)),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
@@ -111,10 +113,10 @@ export function SettingsScreen({ session }: { session: Session }) {
   );
 
   return (
-    <AuthCard title="Your account" service={session.origin} subtitle={session.handle} width="full">
+    <AuthCard title={t("settings.yourAccount")} service={session.origin} subtitle={session.handle} width="full">
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
 
-      <Section title="Two-factor authentication" icon={<IconShieldLock size={18} stroke={1.75} />}>
+      <Section title={t("settings.twoFactor")} icon={<IconShieldLock size={18} stroke={1.75} />}>
         {session.factor === "totp" ? (
           <form
             onSubmit={(event) => {
@@ -130,10 +132,10 @@ export function SettingsScreen({ session }: { session: Session }) {
             className="flex flex-col gap-3"
           >
             <p className="text-sm text-default-500">
-              An authenticator is enabled. {session.recoveryCodes ?? 0} recovery codes remain.
+              {t("settings.totpRemain", { count: session.recoveryCodes ?? 0 })}
             </p>
             <TextField
-              label="Authenticator code"
+              label={t("settings.totpCode")}
               placeholder="123456"
               registration={totp.register("code")}
               error={totp.formState.errors.code}
@@ -141,13 +143,13 @@ export function SettingsScreen({ session }: { session: Session }) {
               maxLength={64}
             />
             <Button type="submit" variant="bordered" radius="sm" {...buttonProps("totp-disable")}>
-              Turn off the authenticator
+              {t("settings.turnOffTotp")}
             </Button>
           </form>
         ) : enrollment ? (
           <form onSubmit={(event) => void confirmTotp(event)} className="flex flex-col gap-3">
             <p className="text-sm text-default-500">
-              Scan this with your authenticator, then enter the code it shows.
+              {t("settings.totpScan")}
             </p>
             <figure className="flex flex-col items-center gap-2 self-start rounded-md bg-white p-3">
               <QRCodeSVG
@@ -155,17 +157,17 @@ export function SettingsScreen({ session }: { session: Session }) {
                 size={176}
                 level="M"
                 marginSize={0}
-                title="Authenticator setup code"
+                title={t("settings.qrTitle")}
               />
             </figure>
             <p className="text-sm text-default-500">
-              Cannot scan it? Enter this secret by hand instead.
+              {t("settings.cannotScan")}
             </p>
             <Snippet size="sm" radius="sm" symbol="" className="font-mono">
               {enrollment.secret}
             </Snippet>
             <TextField
-              label="Authenticator code"
+              label={t("settings.totpCode")}
               placeholder="123456"
               registration={totp.register("code")}
               error={totp.formState.errors.code}
@@ -180,7 +182,7 @@ export function SettingsScreen({ session }: { session: Session }) {
               {...buttonProps("totp-confirm")}
               className="font-medium"
             >
-              Confirm
+              {t("common.confirm")}
             </Button>
           </form>
         ) : (
@@ -195,20 +197,20 @@ export function SettingsScreen({ session }: { session: Session }) {
               })
             }
           >
-            Set up an authenticator
+            {t("settings.setUpTotp")}
           </Button>
         )}
 
         {recoveryCodes ? (
           <div className="flex flex-col gap-2 rounded-xl border border-default-200 p-3">
-            <p className="text-sm font-medium">Save these recovery codes now</p>
+            <p className="text-sm font-medium">{t("settings.saveCodesNow")}</p>
             <ul className="grid grid-cols-2 gap-1 font-mono text-xs">
               {recoveryCodes.map((code) => (
                 <li key={code}>{code}</li>
               ))}
             </ul>
             <Button size="sm" variant="light" radius="sm" onPress={() => setRecoveryCodes(null)}>
-              I saved them
+              {t("settings.savedThem")}
             </Button>
           </div>
         ) : null}
@@ -224,7 +226,7 @@ export function SettingsScreen({ session }: { session: Session }) {
               })
             }
           >
-            Email a one-time code when signing in
+            {t("settings.emailSwitch")}
           </Switch>
         ) : null}
       </Section>
@@ -233,7 +235,7 @@ export function SettingsScreen({ session }: { session: Session }) {
         <>
           <Divider />
 
-          <Section title="Passkeys" icon={<IconFingerprint size={18} stroke={1.75} />}>
+          <Section title={t("settings.passkeys")} icon={<IconFingerprint size={18} stroke={1.75} />}>
             <ul className="flex flex-col gap-2">
               {(session.passkeys ?? []).map((entry) => (
                 <li
@@ -244,8 +246,7 @@ export function SettingsScreen({ session }: { session: Session }) {
                     <p className="truncate text-sm font-medium">{entry.name}</p>
                     <p className="text-xs text-default-500">
                       {entry.lastUsedAt
-                        ? `Last used ${entry.lastUsedAt.slice(0, 10)}`
-                        : `Added ${entry.createdAt.slice(0, 10)}`}
+                        ? t("settings.lastUsed", { when: entry.lastUsedAt.slice(0, 10) }) : t("settings.added", { when: entry.createdAt.slice(0, 10) })}
                     </p>
                   </div>
                   <Button
@@ -263,19 +264,19 @@ export function SettingsScreen({ session }: { session: Session }) {
                       })
                     }
                   >
-                    Remove
+                    {t("common.remove")}
                   </Button>
                 </li>
               ))}
               {(session.passkeys ?? []).length === 0 ? (
-                <li className="text-sm text-default-500">No passkeys yet.</li>
+                <li className="text-sm text-default-500">{t("settings.noPasskeys")}</li>
               ) : null}
             </ul>
 
             <form onSubmit={(event) => void addPasskey(event)} className="flex flex-col gap-3">
               <TextField
-                label="Passkey name"
-                placeholder="This laptop"
+                label={t("settings.passkeyName")}
+                placeholder={t("settings.passkeyPlaceholder")}
                 registration={passkey.register("name")}
                 error={passkey.formState.errors.name}
                 maxLength={64}
@@ -287,7 +288,7 @@ export function SettingsScreen({ session }: { session: Session }) {
                 {...buttonProps("passkey")}
                 className="font-medium"
               >
-                Add a passkey
+                {t("settings.addPasskey")}
               </Button>
             </form>
           </Section>
@@ -296,7 +297,7 @@ export function SettingsScreen({ session }: { session: Session }) {
 
       <Divider />
 
-      <Section title="App passwords" icon={<IconDeviceMobile size={18} stroke={1.75} />}>
+      <Section title={t("settings.appPasswords")} icon={<IconDeviceMobile size={18} stroke={1.75} />}>
         <ul className="flex flex-col gap-2">
           {(session.appPasswords ?? []).map((entry) => (
             <li
@@ -306,7 +307,7 @@ export function SettingsScreen({ session }: { session: Session }) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{entry.name}</p>
                 <p className="text-xs text-default-500">
-                  {entry.privileged ? "Privileged" : "Standard"} · {entry.createdAt.slice(0, 10)}
+                  {entry.privileged ? t("settings.privileged") : t("settings.standard")} · {entry.createdAt.slice(0, 10)}
                 </p>
               </div>
               <Button
@@ -324,37 +325,37 @@ export function SettingsScreen({ session }: { session: Session }) {
                   })
                 }
               >
-                Revoke
+                {t("settings.revoke")}
               </Button>
             </li>
           ))}
           {(session.appPasswords ?? []).length === 0 ? (
-            <li className="text-sm text-default-500">No app passwords yet.</li>
+            <li className="text-sm text-default-500">{t("settings.noAppPasswords")}</li>
           ) : null}
         </ul>
 
         {created ? (
           <div className="flex flex-col gap-2 rounded-xl border border-default-200 p-3">
-            <p className="text-sm font-medium">Copy “{created.name}” now — it is shown once</p>
+            <p className="text-sm font-medium">{t("settings.copyNow", { name: created.name })}</p>
             <Snippet size="sm" radius="sm" symbol="" className="font-mono">
               {created.password}
             </Snippet>
             <Button size="sm" variant="light" radius="sm" onPress={() => setCreated(null)}>
-              Done
+              {t("settings.done")}
             </Button>
           </div>
         ) : null}
 
         <form onSubmit={(event) => void createAppPassword(event)} className="flex flex-col gap-3">
           <TextField
-            label="Name"
-            placeholder="Phone"
+            label={t("settings.name")}
+            placeholder={t("settings.namePlaceholder")}
             registration={appPassword.register("name")}
             error={appPassword.formState.errors.name}
             maxLength={64}
           />
           <Switch size="sm" {...appPassword.register("privileged")}>
-            Allow direct messages and account settings
+            {t("settings.allowDms")}
           </Switch>
           <Button
             type="submit"
@@ -363,14 +364,14 @@ export function SettingsScreen({ session }: { session: Session }) {
             {...buttonProps("app-password")}
             className="font-medium"
           >
-            Create an app password
+            {t("settings.createAppPassword")}
           </Button>
         </form>
       </Section>
 
       <Divider />
 
-      <Section title="Connected applications" icon={<IconKey size={18} stroke={1.75} />}>
+      <Section title={t("settings.connectedApps")} icon={<IconKey size={18} stroke={1.75} />}>
         <ul className="flex flex-col gap-2">
           {(session.oauthSessions ?? []).map((entry) => (
             <li key={entry.id} className="flex flex-col gap-2 rounded-xl border border-default-200 p-3">
@@ -393,34 +394,34 @@ export function SettingsScreen({ session }: { session: Session }) {
                   })
                 }
               >
-                Revoke access
+                {t("settings.revokeAccess")}
               </Button>
             </li>
           ))}
           {(session.oauthSessions ?? []).length === 0 ? (
-            <li className="text-sm text-default-500">No applications are connected.</li>
+            <li className="text-sm text-default-500">{t("settings.noAppsConnected")}</li>
           ) : null}
         </ul>
       </Section>
 
       <Divider />
 
-      <Section title="Password" icon={<IconLogout size={18} stroke={1.75} />}>
+      <Section title={t("settings.password")} icon={<IconLogout size={18} stroke={1.75} />}>
         <form onSubmit={(event) => void changePassword(event)} className="flex flex-col gap-3">
           <PasswordField
-            label="Current password"
+            label={t("settings.currentPassword")}
             registration={passwords.register("currentPassword")}
             error={passwords.formState.errors.currentPassword}
             autoComplete="current-password"
           />
           <PasswordField
-            label="New password"
+            label={t("settings.newPassword")}
             registration={passwords.register("newPassword")}
             error={passwords.formState.errors.newPassword}
             autoComplete="new-password"
           />
           <PasswordField
-            label="Confirm new password"
+            label={t("settings.confirmNewPassword")}
             registration={passwords.register("confirmPassword")}
             error={passwords.formState.errors.confirmPassword}
             autoComplete="new-password"
@@ -432,7 +433,7 @@ export function SettingsScreen({ session }: { session: Session }) {
             {...buttonProps("password")}
             className="font-medium"
           >
-            Change password
+            {t("settings.changePassword")}
           </Button>
         </form>
 
@@ -442,7 +443,7 @@ export function SettingsScreen({ session }: { session: Session }) {
           {...buttonProps("logout")}
           onPress={() => void run("logout", () => action.mutateAsync({ action: "logout" }).then(() => undefined))}
         >
-          Sign out
+          {t("common.signOut")}
         </Button>
       </Section>
     </AuthCard>

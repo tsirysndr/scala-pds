@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Divider } from "@heroui/react";
@@ -25,12 +26,13 @@ export function LoginScreen({
   loginHint?: string;
   onAuthenticated: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const action = useAction();
   const setSignup = useSetAtom(signupModeAtom);
   const { run, buttonProps, notice } = usePending();
 
   const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema(t)),
     mode: "onSubmit",
     defaultValues: { identifier: loginHint ?? "", password: "" },
   });
@@ -46,7 +48,7 @@ export function LoginScreen({
     run("passkey", async () => {
       const identifier = form.getValues("identifier").trim();
       if (!identifier) {
-        form.setError("identifier", { message: "Enter your username or email address first" });
+        form.setError("identifier", { message: t("login.passkeyFirst") });
         return;
       }
       const started = await action.mutateAsync({
@@ -66,9 +68,9 @@ export function LoginScreen({
 
   return (
     <AuthCard
-      title="Sign in"
+      title={t("login.title")}
       service={session.origin}
-      subtitle={clientId ? undefined : "Use your PDS account"}
+      subtitle={clientId ? undefined : t("login.subtitle")}
     >
       {clientId ? <ClientPanel clientId={clientId} /> : null}
 
@@ -76,7 +78,7 @@ export function LoginScreen({
 
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4" noValidate>
         <TextField
-          label="Username or email address"
+          label={t("login.identifier")}
           placeholder={`alice.${session["user-domain"]}`}
           registration={form.register("identifier")}
           error={form.formState.errors.identifier}
@@ -87,8 +89,8 @@ export function LoginScreen({
         />
 
         <PasswordField
-          label="Password"
-          placeholder="Your password"
+          label={t("common.password")}
+          placeholder={t("login.passwordPlaceholder")}
           registration={form.register("password")}
           error={form.formState.errors.password}
           startContent={
@@ -101,7 +103,7 @@ export function LoginScreen({
 
         <p className="flex items-center gap-1.5 text-xs text-default-500">
           <IconLock size={14} stroke={1.75} aria-hidden />
-          Verify the address bar before entering your password.
+          {t("login.verifyBar")}
         </p>
 
         <Button
@@ -112,7 +114,7 @@ export function LoginScreen({
           {...buttonProps("password")}
           className="mt-1 font-medium"
         >
-          Sign in
+          {t("common.signIn")}
         </Button>
       </form>
 
@@ -120,7 +122,7 @@ export function LoginScreen({
         <>
           <div className="flex items-center gap-3">
             <Divider className="flex-1" />
-            <span className="text-xs text-default-400">or</span>
+            <span className="text-xs text-default-400">{t("common.or")}</span>
             <Divider className="flex-1" />
           </div>
 
@@ -133,20 +135,20 @@ export function LoginScreen({
             startContent={<IconFingerprint size={18} stroke={1.75} />}
             onPress={() => void passkeyLogin()}
           >
-            Sign in with a passkey
+            {t("login.passkey")}
           </Button>
         </>
       ) : null}
 
       {session["signup-enabled"] ? (
         <p className="text-center text-sm text-default-500">
-          No account yet?{" "}
+          {t("login.noAccount")}{" "}
           <button
             type="button"
             onClick={() => setSignup(true)}
             className="font-medium text-primary hover:underline"
           >
-            Create one
+            {t("login.createOne")}
           </button>
         </p>
       ) : null}
