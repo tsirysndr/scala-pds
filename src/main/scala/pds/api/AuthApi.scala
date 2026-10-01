@@ -79,8 +79,9 @@ object AuthApi:
       token <- IO(pds.crypto.Hash.randomBase32(32))
       ceremony <- env.database.transact { connection =>
         // A challenge is offered per account here, so the identifier is
-        // required. The same answer is given whether the account is absent or
-        // simply has no passkey: a sign-in endpoint must not say who exists.
+        // required. Saying the account is unknown discloses nothing: in atproto
+        // a handle is public, and resolveHandle already answers that question
+        // for anyone who asks.
         val identifier = Xrpc.requireField(input, "identifier").toLowerCase
         val account = Accounts.byIdentifier(connection, identifier).getOrElse(
           throw XrpcError.named(org.http4s.Status.Unauthorized, "AccountNotFound",
