@@ -402,8 +402,12 @@ object ServerApi:
       session <- Xrpc.session(env, request)
       _ <- Xrpc.requirePrivileged(session)
       audience = Xrpc.requireParam(request, "aud")
-      _ <- IO.raiseUnless(Syntax.isDid(audience))(
-        XrpcError.invalidRequest("aud must be a DID"))
+      // A service reference (`did#id`) is how real services name themselves;
+      // the token's aud is compared verbatim by the receiver, so both forms
+      // are accepted and signed exactly as requested.
+      _ <- IO.raiseUnless(Syntax.isDid(audience.takeWhile(_ != '#')) &&
+        audience.count(_ == '#') <= 1 && !audience.endsWith("#"))(
+        XrpcError.invalidRequest("aud must be a DID or DID service reference"))
       method = Xrpc.param(request, "lxm").filter(Syntax.isNsid)
       now <- env.now
       expiry = Xrpc.param(request, "exp").flatMap(_.toLongOption).getOrElse(now / 1000 + 60)
