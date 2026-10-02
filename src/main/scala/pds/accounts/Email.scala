@@ -85,8 +85,16 @@ object Email:
           purpose match
             case "sign-in" => coded(s"Your $hostname sign-in code",
               "Use this code to finish signing in:")
-            case "confirm-email" => coded(s"Confirm your email address on $hostname",
-              "Use this code to confirm your email address:")
+            // Confirmation lands signed out, so the mail carries a link to the
+            // page that finishes the job.
+            case "confirm-email" =>
+              cursor.get[String]("token").toOption.map { code =>
+                (s"Confirm your email address on $hostname",
+                  s"Use this code to confirm your email address:\n\n    $code\n\n" +
+                    s"Or open this link:\n\n    $publicUrl/account/confirm/$code\n\n" +
+                    s"The code is valid for ${tokenSeconds / 60} minutes. " +
+                    s"If you did not ask for it, you can ignore this message.\n\n$hostname\n")
+              }
             case "update-email" => coded(s"Confirm your new email address on $hostname",
               "Use this code to confirm your new email address:")
             // A reset is begun signed out, so the mail carries the way back

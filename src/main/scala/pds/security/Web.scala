@@ -59,7 +59,9 @@ object Web:
   def asset(path: String): Option[Response[IO]] =
     // The reset link from the email lands with the token in the path; the page
     // is the same bundle, which reads it back out of location.pathname.
-    val resolved = if path.startsWith("/account/reset") then "/account" else path
+    val resolved =
+      if path.startsWith("/account/reset") || path.startsWith("/account/confirm/") then "/account"
+      else path
     assets.get(resolved).filter(_._2.nonEmpty).map { (mime, body) =>
       // The bundle is served under a fixed name, so a CDN in front must
       // revalidate on every fetch or a deploy leaves stale JavaScript at the
@@ -99,6 +101,27 @@ object Web:
   def routes(env: Env): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case request @ GET -> path if asset(path.renderString).isDefined =>
       IO.pure(asset(path.renderString).get.putHeaders(headers*))
+
+    // The emailed confirmation link lands signed out; the single-use token it
+    // carries is the whole proof, so no session or CSRF is involved.
+    case request @ POST -> Root / "account" / "confirm" =>
+      for
+        _ <- checkOrigin(env, request)
+        body <- Xrpc.body(request)
+        now <- env.now
+        _ <- env.database.transact { connection =>
+          val token = Xrpc.requireField(body, "token")
+          val row = pds.storage.Sql.first(connection,
+            "SELECT did, email FROM account_tokens WHERE token_hash = ? AND purpose = 'confirm-email'",
+            pds.crypto.Hash.digestToken(token.trim.toUpperCase))(r => (r.string("did"), r.string("email")))
+            .getOrElse(throw XrpcError.named(Status.BadRequest, "InvalidToken",
+              "Token is invalid or has expired"))
+          pds.accounts.Email.consume(connection, "confirm-email", token, row._1, row._2, now)
+          pds.accounts.Accounts.setEmail(connection, row._1, row._2, confirmed = true)
+        }
+      yield Response[IO](Status.Ok)
+        .withEntity(Json.obj("confirmed" -> Json.fromBoolean(true)))
+        .putHeaders(headers*)
 
     case request @ GET -> Root / "account" / "session" =>
       Browser.open(env, readCookie(env, "security", request))
