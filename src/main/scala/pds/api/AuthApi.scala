@@ -128,14 +128,9 @@ object AuthApi:
           credentialJson(credential), now)
         val account = Accounts.requireActive(connection, did)
 
-        // A passkey replaces the password, not a factor on top of it.
-        if Totp.enabled(connection, did) then
-          val supplied = input.hcursor.get[String]("totpCode").toOption
-            .orElse(input.hcursor.get[String]("authFactorToken").toOption)
-            .getOrElse(throw XrpcError.named(org.http4s.Status.Unauthorized,
-              "AuthFactorTokenRequired", "A two-factor code is required"))
-          Totp.verify(env, connection, did, supplied, now)
-
+        // A user-verified passkey is already two factors: the device, and the
+        // PIN or biometric that unlocked it, both checked in the assertion just
+        // verified. No code is asked on top.
         val tokens = Sessions.issue(env, connection, account, Credential.Access, None, now)
         Sessions.describe(env, account, Credential.Access).deepMerge(Json.obj(
           "accessJwt" -> Json.fromString(tokens.accessJwt),

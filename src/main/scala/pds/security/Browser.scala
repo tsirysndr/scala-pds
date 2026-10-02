@@ -221,7 +221,10 @@ object Browser:
       env: Env, connection: Connection, session: BrowserSession, account: Account,
       method: String, now: Long
   ): BrowserResult =
-    val required = factor(connection, account)
+    // A user-verified passkey is already two factors: the device, and the PIN
+    // or biometric that unlocked it. Asking for a code on top adds a step
+    // without adding a factor, so only a password sign-in meets the wall.
+    val required = if method == "passkey" then None else factor(connection, account)
     if required.contains("email") then
       Email.requireEnabled(env)
       Email.issue(connection, account, "sign-in", now)
