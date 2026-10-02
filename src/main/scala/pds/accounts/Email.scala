@@ -70,7 +70,7 @@ object Email:
     * the wire is exactly `{to, subject, text}`. Templating happens here rather
     * than in the endpoint, which only has a purpose string to go on otherwise.
     */
-  def render(hostname: String, payload: Json): Option[Json] =
+  def render(hostname: String, publicUrl: String, payload: Json): Option[Json] =
     val cursor = payload.hcursor
     val body =
       for
@@ -89,8 +89,16 @@ object Email:
               "Use this code to confirm your email address:")
             case "update-email" => coded(s"Confirm your new email address on $hostname",
               "Use this code to confirm your new email address:")
-            case "reset-password" => coded(s"Reset your $hostname password",
-              "Use this code to set a new password:")
+            // A reset is begun signed out, so the mail carries the way back
+            // in: a link to the page that takes a new password.
+            case "reset-password" =>
+              cursor.get[String]("token").toOption.map { code =>
+                (s"Reset your $hostname password",
+                  s"Use this code to set a new password:\n\n    $code\n\n" +
+                    s"Or open this link:\n\n    $publicUrl/account/reset/$code\n\n" +
+                    s"The code is valid for ${tokenSeconds / 60} minutes. " +
+                    s"If you did not ask for it, you can ignore this message.\n\n$hostname\n")
+              }
             case "delete-account" => coded(s"Confirm deleting your $hostname account",
               "Use this code to confirm deleting your account. This cannot be undone:")
             case "plc-operation" => coded(s"Confirm an identity change on $hostname",
@@ -129,7 +137,7 @@ object Email:
                   attempts + 1, error.take(500), if failed then "failed" else "pending",
                   now + math.min(3600, 30 * (1 << attempts)).toLong * 1000, id)
               ).as(0)
-            render(env.config.hostname,
+            render(env.config.hostname, env.config.publicUrl,
               io.circe.parser.parse(payload).getOrElse(Json.obj())) match
               case None => give("Message cannot be rendered", permanent = true)
               case Some(body) =>

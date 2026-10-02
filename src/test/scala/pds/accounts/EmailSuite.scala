@@ -17,13 +17,16 @@ class EmailSuite extends munit.FunSuite:
   private val token = "token" -> Json.fromString("ABC123-DEF456")
 
   test("a code message carries only the fields the endpoint accepts") {
-    val rendered = Email.render("pds.example.com", payload("reset-password", token)).get
+    val rendered = Email.render("pds.example.com", "https://pds.example.com", payload("reset-password", token)).get
     assertEquals(rendered.hcursor.keys.map(_.toVector.sorted),
       Some(Vector("subject", "text", "to")))
     assertEquals(rendered.hcursor.get[String]("to"), Right("alice@example.com"))
     assertEquals(rendered.hcursor.get[String]("subject"),
       Right("Reset your pds.example.com password"))
     val text = rendered.hcursor.get[String]("text").toOption.get
+    // A reset begins signed out, so the mail links to the page that takes a
+    // new password, with the token in the path.
+    assert(text.contains("https://pds.example.com/account/reset/"), text)
     assert(clue(text).contains("ABC123-DEF456"))
     assert(text.contains("15 minutes"))
     assert(text.contains("pds.example.com"))
@@ -33,7 +36,7 @@ class EmailSuite extends munit.FunSuite:
     val purposes = Vector("sign-in", "confirm-email", "update-email", "reset-password",
       "delete-account", "plc-operation")
     val subjects = purposes.map { purpose =>
-      val rendered = Email.render("pds.example.com", payload(purpose, token))
+      val rendered = Email.render("pds.example.com", "https://pds.example.com", payload(purpose, token))
       assert(clue(rendered).isDefined)
       rendered.get.hcursor.get[String]("subject").toOption.get
     }
@@ -42,7 +45,7 @@ class EmailSuite extends munit.FunSuite:
   }
 
   test("an administrative notice carries the operator's own subject and body") {
-    val rendered = Email.render("pds.example.com", payload("admin-notice",
+    val rendered = Email.render("pds.example.com", "https://pds.example.com", payload("admin-notice",
       "subject" -> Json.fromString("Scheduled maintenance"),
       "content" -> Json.fromString("The server will restart at 02:00 UTC."))).get
     assertEquals(rendered.hcursor.get[String]("subject"), Right("Scheduled maintenance"))
@@ -52,10 +55,10 @@ class EmailSuite extends munit.FunSuite:
 
   test("a message that cannot be rendered is not sent half-formed") {
     // A code purpose with no code, an unknown purpose, and a notice with no body.
-    assertEquals(Email.render("pds.example.com", payload("reset-password")), None)
-    assertEquals(Email.render("pds.example.com", payload("something-else", token)), None)
-    assertEquals(Email.render("pds.example.com", payload("admin-notice",
+    assertEquals(Email.render("pds.example.com", "https://pds.example.com", payload("reset-password")), None)
+    assertEquals(Email.render("pds.example.com", "https://pds.example.com", payload("something-else", token)), None)
+    assertEquals(Email.render("pds.example.com", "https://pds.example.com", payload("admin-notice",
       "subject" -> Json.fromString("Only a subject"))), None)
-    assertEquals(Email.render("pds.example.com",
+    assertEquals(Email.render("pds.example.com", "https://pds.example.com",
       Json.obj("purpose" -> Json.fromString("sign-in"), "token" -> Json.fromString("A"))), None)
   }

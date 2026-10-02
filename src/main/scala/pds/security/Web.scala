@@ -57,7 +57,10 @@ object Web:
       case None => ""
 
   def asset(path: String): Option[Response[IO]] =
-    assets.get(path).filter(_._2.nonEmpty).map { (mime, body) =>
+    // The reset link from the email lands with the token in the path; the page
+    // is the same bundle, which reads it back out of location.pathname.
+    val resolved = if path.startsWith("/account/reset") then "/account" else path
+    assets.get(resolved).filter(_._2.nonEmpty).map { (mime, body) =>
       // The bundle is served under a fixed name, so a CDN in front must
       // revalidate on every fetch or a deploy leaves stale JavaScript at the
       // edge until its default TTL runs out.
