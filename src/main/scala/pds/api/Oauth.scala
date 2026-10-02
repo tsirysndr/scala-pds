@@ -21,10 +21,19 @@ object Oauth:
 
   private def form(request: Request[IO]): IO[Map[String, String]] =
     request.body.take(64 * 1024L).compile.to(Array).flatMap { bytes =>
-      IO.fromEither(UrlForm.decodeString(Charset.`UTF-8`)(
-        new String(bytes, java.nio.charset.StandardCharsets.UTF_8))
-        .left.map(_ => XrpcError.invalidRequest("Expected a form-encoded body")))
-        .map(_.values.view.mapValues(_.headOption.getOrElse("")).toMap)
+      val text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+      // Several OAuth clients send PAR as JSON rather than a form. The shape is
+      // the same flat map of strings, so both bodies are accepted.
+      val isJson = request.contentType.exists(_.mediaType == org.http4s.MediaType.application.json)
+      if isJson then
+        IO.fromEither(io.circe.parser.parse(text).toOption
+          .flatMap(_.asObject)
+          .map(_.toMap.flatMap((key, value) => value.asString.map(key -> _)))
+          .toRight(XrpcError.invalidRequest("Expected a JSON object of strings")))
+      else
+        IO.fromEither(UrlForm.decodeString(Charset.`UTF-8`)(text)
+          .left.map(_ => XrpcError.invalidRequest("Expected a form-encoded body")))
+          .map(_.values.view.mapValues(_.headOption.getOrElse("")).toMap)
     }
 
   def routes(env: Env, client: Client[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {

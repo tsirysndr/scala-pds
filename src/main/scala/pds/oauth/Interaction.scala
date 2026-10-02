@@ -137,9 +137,10 @@ object Interaction:
         Sql.update(connection, "UPDATE oauth_interactions SET decided = true WHERE id = ?", id)
         val redirect = state.parameters.getOrElse("redirect_uri",
           throw fail("invalid_request", "The request has no redirect target"))
+        val fragmentMode = state.parameters.get("response_mode").contains("fragment")
         val stateValue = state.parameters.getOrElse("state", "")
         if !approve then
-          Decision(redirectTo(redirect, Map(
+          Decision(redirectTo(redirect, fragmentMode, Map(
             "error" -> "access_denied",
             "error_description" -> "The account owner denied the request",
             "state" -> stateValue,
@@ -157,12 +158,16 @@ object Interaction:
             Sql.first(connection, "SELECT dpop_jkt FROM oauth_requests WHERE request_uri = ?",
               state.requestUri)(_.stringOpt("dpop_jkt")).flatten,
             account.securityEpoch, now, now + 60_000)
-          Decision(redirectTo(redirect, Map(
+          Decision(redirectTo(redirect, fragmentMode, Map(
             "code" -> code, "state" -> stateValue, "iss" -> env.config.publicUrl)))
       }
     }
 
-  private def redirectTo(target: String, params: Map[String, String]): String =
+  private def redirectTo(target: String, fragment: Boolean, params: Map[String, String]): String =
     val query = params.filter(_._2.nonEmpty).map((key, value) =>
       s"$key=${java.net.URLEncoder.encode(value, "UTF-8")}").mkString("&")
-    if target.contains('?') then s"$target&$query" else s"$target?$query"
+    // The client chose where the response lands at PAR time: the fragment is
+    // for apps that can only read location.hash, the query for everyone else.
+    if fragment then s"$target#$query"
+    else if target.contains('?') then s"$target&$query"
+    else s"$target?$query"

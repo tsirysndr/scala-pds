@@ -79,7 +79,9 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
   private val verifier = Hash.token() + Hash.token().take(10)
   private val challenge = Encoding.b64(Hash.sha256(verifier))
 
-  private def parRequest(server: Harness, now: Long, nonce: Option[String]): IO[Response[IO]] =
+  private def parRequest(
+      server: Harness, now: Long, nonce: Option[String], extra: Map[String, String] = Map.empty
+  ): IO[Response[IO]] =
     server.run(form("/oauth/par", Map(
       "client_id" -> clientId,
       "response_type" -> "code",
@@ -88,7 +90,46 @@ class OauthFlowSuite extends munit.CatsEffectSuite:
       "state" -> "a-client-state",
       "code_challenge" -> challenge,
       "code_challenge_method" -> "S256"
-    ), proof("POST", s"$origin/oauth/par", nonce, None, now)))
+    ) ++ extra, proof("POST", s"$origin/oauth/par", nonce, None, now)))
+
+  test("a fragment-mode request delivers the code in the fragment") {
+    // The client chose where the response lands at PAR time: some apps can
+    // only read location.hash.
+    harness(client = routes(upstream())).use { server =>
+      for
+        now <- server.env.now
+        seed <- parRequest(server, now, None, Map("response_mode" -> "fragment"))
+        pushed <- parRequest(server, now, nonceOf(seed), Map("response_mode" -> "fragment"))
+        requestUri <- pushed.as[Json].map(_.hcursor.get[String]("request_uri").toOption.get)
+        authorize <- server.run(get(
+          s"/oauth/authorize?client_id=${java.net.URLEncoder.encode(clientId, "UTF-8")}" +
+            s"&request_uri=${java.net.URLEncoder.encode(requestUri, "UTF-8")}"))
+        flowId = authorize.headers.get(CIString("Location")).map(_.head.value).get
+          .stripPrefix("/oauth/flow/")
+        flowCookie = cookieOf(authorize, "__Host-pds-oauth").get
+        owner <- signIn(server)
+        (accountCookie, accountCsrf) = owner
+        state <- server.run(withCookie(get(s"/oauth/flow/$flowId/state"), "__Host-pds-oauth", flowCookie))
+        flowState <- state.as[Json]
+        flowCsrf = flowState.hcursor.get[String]("csrf").toOption.get
+        _ <- server.run(
+          withCookie(withCookie(sameOrigin(post(s"/oauth/flow/$flowId/attach",
+            Json.obj("accountCsrf" -> Json.fromString(accountCsrf)))
+            .putHeaders(Header.Raw(CIString("X-CSRF-Token"), flowCsrf))),
+            "__Host-pds-oauth", flowCookie), "__Host-pds-security", accountCookie))
+        decided <- server.run(
+          withCookie(sameOrigin(post(s"/oauth/flow/$flowId/decide", Json.obj("approve" -> Json.True))
+            .putHeaders(Header.Raw(CIString("X-CSRF-Token"), flowCsrf))),
+            "__Host-pds-oauth", flowCookie))
+        decision <- decided.as[Json]
+        location = decision.hcursor.get[String]("location").toOption.get
+      yield
+        assert(location.startsWith(redirect + "#"), location)
+        assert(location.contains("code="), location)
+        assert(location.contains("state=a-client-state"), location)
+        assert(!location.split("#").head.contains("code="), location)
+    }
+  }
 
   test("discovery documents describe the authorization server") {
     harness(client = routes(upstream())).use { server =>

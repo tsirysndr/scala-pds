@@ -80,6 +80,10 @@ object Par:
         fail("invalid_request", "Unsupported prompt value"))
       _ <- Either.cond(form.get("login_hint").forall(_.length <= 2048), (),
         fail("invalid_request", "login_hint is too long"))
+      // The atproto profile delivers the code over the query or the fragment,
+      // at the client's choice; some apps can only read the fragment.
+      _ <- Either.cond(form.get("response_mode").forall(Set("query", "fragment").contains), (),
+        fail("invalid_request", "Unsupported response_mode"))
     yield Map(
       "client_id" -> metadata.clientId,
       "response_type" -> "code",
@@ -88,7 +92,7 @@ object Par:
       "code_challenge_method" -> "S256",
       "state" -> state,
       "scope" -> scope.mkString(" ")
-    ) ++ form.view.filterKeys(Set("login_hint", "prompt")).toMap
+    ) ++ form.view.filterKeys(Set("login_hint", "prompt", "response_mode")).toMap
 
   def consume(env: Env, clientId: String, requestUri: String, now: Long): IO[Map[String, String]] =
     env.database.transact { connection =>

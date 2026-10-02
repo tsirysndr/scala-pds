@@ -13,7 +13,7 @@ object Metadata:
       "token_endpoint" -> Json.fromString(s"$url/oauth/token"),
       "revocation_endpoint" -> Json.fromString(s"$url/oauth/revoke"),
       "response_types_supported" -> Json.arr(Json.fromString("code")),
-      "response_modes_supported" -> Json.arr(Json.fromString("query")),
+      "response_modes_supported" -> Json.arr(Json.fromString("query"), Json.fromString("fragment")),
       "grant_types_supported" -> Json.arr(
         Json.fromString("authorization_code"), Json.fromString("refresh_token")),
       "code_challenge_methods_supported" -> Json.arr(Json.fromString("S256")),
