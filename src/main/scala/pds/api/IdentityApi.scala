@@ -25,12 +25,25 @@ object IdentityApi:
     "com.atproto.identity.submitPlcOperation" -> Endpoint.procedure(submitOperation(env, _))
   )
 
+  /** Set by a gateway or delegate fanning a handle question out to its nodes. */
+  private[api] def delegateHop(request: Request[IO]): Boolean =
+    Seq("x-pdsgw-delegate-hop", "atoll-delegate-hop")
+      .exists(name => request.headers.get(org.typelevel.ci.CIString(name)).isDefined)
+
   private def resolveHandle(env: Env, request: Request[IO]): IO[Response[IO]] =
     for
       handle <- IO.pure(Syntax.normalizeHandle(Xrpc.requireParam(request, "handle")))
       _ <- IO.raiseUnless(Syntax.isHandle(handle))(
         XrpcError.invalidRequest("handle must be a domain name"))
-      did <- env.resolver.resolveHandle(handle)
+      // A delegate asking only wants what this server hosts. Resolving outward
+      // instead fetches the handle's HTTPS host, which in a shared namespace is
+      // the gateway's TLS ask, which asks this server again: a loop that only
+      // each hop's timeout ends.
+      did <-
+        if delegateHop(request) then
+          env.database.transact(connection =>
+            pds.accounts.Accounts.byHandle(connection, handle).map(_.did))
+        else env.resolver.resolveHandle(handle)
       found <- IO.fromOption(did)(
         XrpcError.named(Status.BadRequest, "HandleNotFound", "Handle could not be resolved"))
       response <- Xrpc.ok(Json.obj("did" -> Json.fromString(found)))
