@@ -14,7 +14,8 @@ describe("signup", () => {
     window.history.replaceState({}, "", "/account");
   });
 
-  it("builds the handle from the username and the server domain", async () => {
+  it.each(["Alice", "Alice.pds.example.com", "Alice.other.test"])("accepts short and full handles: %s", async (username) => {
+    const expectedHandle = username.includes(".") ? username.toLowerCase() : "alice.pds.example.com";
     const calls = stubFetch({
       "/account/session": () => [200, session()],
       "/account/action/signup": () => [
@@ -25,7 +26,8 @@ describe("signup", () => {
     render(<App client={client()} />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Create one" }));
-    await userEvent.type(screen.getByLabelText(/Username/), "Alice");
+    await userEvent.type(screen.getByLabelText(/Username/), username);
+    if (username.includes(".")) expect(screen.queryByText(".pds.example.com")).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/Email address/), "alice@example.com");
     await userEvent.type(screen.getByLabelText(/^Password/), "correct horse battery");
     await userEvent.type(screen.getByLabelText(/Confirm password/), "correct horse battery");
@@ -35,7 +37,7 @@ describe("signup", () => {
       expect(calls.some((call) => call.path === "/account/action/signup")).toBe(true),
     );
     expect(calls.find((call) => call.path === "/account/action/signup")?.body).toEqual({
-      handle: "alice.pds.example.com",
+      handle: expectedHandle,
       email: "alice@example.com",
       password: "correct horse battery",
     });

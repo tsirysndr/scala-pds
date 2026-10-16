@@ -35,9 +35,9 @@ export const signupSchema = (t: T, inviteRequired: boolean) =>
         .string()
         .trim()
         .min(3, t("schema.usernameMin"))
-        .max(63, t("schema.usernameLong"))
+        .max(253, t("schema.usernameLong"))
         .regex(
-          /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/,
+          /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
           t("schema.usernameShape"),
         ),
       email: z
