@@ -20,7 +20,19 @@ import pds.{Env, XrpcError}
   * able to take the second factor off or register a credential of its own.
   */
 object AuthApi:
+  private def searchHandles(env: Env, request: Request[IO]): IO[Response[IO]] =
+    val query = Xrpc.param(request, "q").getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
+    val handles =
+      if query.matches("[a-z0-9.-]{2,253}") then env.database.read { connection =>
+        pds.storage.Sql.query(connection,
+          "SELECT handle FROM accounts WHERE status = 'active' AND handle LIKE ? ORDER BY handle LIMIT 10",
+          query + "%")(_.string("handle"))
+      }
+      else IO.pure(Vector.empty[String])
+    handles.flatMap(values => Xrpc.ok(Json.obj("handles" -> Json.arr(values.map(Json.fromString)*))))
+
   def endpoints(env: Env): Map[String, Endpoint] = Map(
+    "social.rocksky.auth.searchHandles" -> Endpoint.query(searchHandles(env, _)),
     "social.rocksky.auth.getTwoFactor" -> Endpoint.query(getTwoFactor(env, _)),
     "social.rocksky.auth.beginTwoFactor" -> Endpoint.procedure(beginTwoFactor(env, _)),
     "social.rocksky.auth.confirmTwoFactor" -> Endpoint.procedure(confirmTwoFactor(env, _)),

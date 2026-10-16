@@ -41,6 +41,7 @@ class AuthApiSuite extends munit.CatsEffectSuite:
       IO {
         val endpoints = AuthApi.endpoints(server.env)
         val expected = Map(
+          "social.rocksky.auth.searchHandles" -> Kind.Query,
           "social.rocksky.auth.getTwoFactor" -> Kind.Query,
           "social.rocksky.auth.beginTwoFactor" -> Kind.Procedure,
           "social.rocksky.auth.confirmTwoFactor" -> Kind.Procedure,
@@ -57,6 +58,23 @@ class AuthApiSuite extends munit.CatsEffectSuite:
         expected.foreach((nsid, kind) =>
           assertEquals(endpoints(nsid).kind, kind, s"$nsid has the wrong kind"))
       }
+    }
+  }
+
+  test("handle suggestions are public, local, and exclude inactive accounts") {
+    harness().use { server =>
+      for
+        _ <- signIn(server)
+        found <- server.json(get("/xrpc/social.rocksky.auth.searchHandles?q=AL"))
+        invalid <- server.json(get("/xrpc/social.rocksky.auth.searchHandles?q=a%25"))
+        _ <- server.env.database.transact(connection =>
+          pds.storage.Sql.update(connection, "UPDATE accounts SET status = 'deactivated'"))
+        hidden <- server.json(get("/xrpc/social.rocksky.auth.searchHandles?q=al"))
+      yield
+        assertEquals(found._1, Status.Ok)
+        assertEquals(found._2, Json.obj("handles" -> Json.arr(Json.fromString("alice.pds.example.com"))))
+        assertEquals(invalid._2, Json.obj("handles" -> Json.arr()))
+        assertEquals(hidden._2, Json.obj("handles" -> Json.arr()))
     }
   }
 
