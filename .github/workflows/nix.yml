@@ -2,17 +2,28 @@ name: nix
 
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  flake:
-    runs-on: ubuntu-latest
+  nix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-      - run: nix flake check --all-systems --no-build
-      - run: nix build .#scala-pds
+          persist-credentials: false
+      - name: Install Dagger
+        uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77
+        with:
+          version: v1.0.0-beta.21
+      - name: Run nix checks
+        working-directory: .dagger
+        run: dagger api call -m ci nix --source ..

@@ -100,3 +100,7 @@ implementation is a reference, not a runtime dependency.
 ## License
 
 [MIT](LICENSE). Vendored conformance fixtures retain their upstream CC0 license.
+
+## Continuous integration
+
+Build and test checks run through the Gleam Dagger module. See [Dagger CI](.dagger/README.md) for commands, services, caching, and pipeline development.
