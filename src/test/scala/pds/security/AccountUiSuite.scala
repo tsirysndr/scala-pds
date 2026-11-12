@@ -55,7 +55,7 @@ class AccountUiSuite extends munit.CatsEffectSuite:
         assertEquals(page.status, Status.Ok)
         assert(body.contains("/account/app.js"), body)
         assertEquals(page.headers.get(CIString("Content-Security-Policy")).map(_.head.value),
-          Some("default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; " +
+          Some("default-src 'none'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; " +
             "img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"))
         assertEquals(page.headers.get(CIString("X-Frame-Options")).map(_.head.value), Some("DENY"))
         assertEquals(script.status, Status.Ok)
