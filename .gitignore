@@ -10,3 +10,6 @@ data/
 frontend/node_modules/
 docs/_site/
 interop/node_modules/
+
+# Private Turnstile credentials.
+/.env.turnstile

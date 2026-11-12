@@ -22,7 +22,7 @@ object Web:
     Header.Raw(CIString("Referrer-Policy"), "no-referrer"),
     Header.Raw(CIString("X-Frame-Options"), "DENY"),
     Header.Raw(CIString("Content-Security-Policy"),
-      "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
+      "default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; " +
         "img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"),
     Header.Raw(CIString("Permissions-Policy"),
       "publickey-credentials-get=(self), publickey-credentials-create=(self)")
@@ -146,6 +146,7 @@ object Web:
     "signup-enabled" -> Json.fromBoolean(env.config.signupEnabled),
     "email-enabled" -> Json.fromBoolean(env.config.emailEnabled),
     "invite-required" -> Json.fromBoolean(env.config.inviteRequired),
+    "turnstile" -> Turnstile.describe(env),
     "user-domain" -> Json.fromString(env.config.userDomain),
     "passkeys-available" -> Json.fromBoolean(Passkeys.available(env))
   )

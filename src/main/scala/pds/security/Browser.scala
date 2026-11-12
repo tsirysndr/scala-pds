@@ -329,7 +329,8 @@ object Browser:
         inviteCode = pds.api.Xrpc.field(body, "inviteCode"),
         did = None,
         recoveryKey = None,
-        verificationCode = None
+        verificationCode = None,
+        turnstileToken = pds.api.Xrpc.field(body, "turnstileToken")
       ))
       result <- action(env, token, csrfToken, "login/password", Json.obj(
         "identifier" -> Json.fromString(created.account.did),

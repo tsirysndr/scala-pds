@@ -32,7 +32,10 @@ final case class ServerConfig private (
     firehoseRetentionHours: Int,
     accessLog: Boolean,
     webauthnRpId: Option[String],
-    webauthnOrigins: Vector[String]
+    webauthnOrigins: Vector[String],
+    turnstileSiteKey: Option[String],
+    turnstileSecretKey: Option[String],
+    turnstileHostnames: Set[String]
 ):
   val serviceDid: String = s"did:web:$hostname"
   def emailEnabled: Boolean = emailEndpoint.isDefined
@@ -102,6 +105,13 @@ object ServerConfig:
       rateLimit <- env.getOrElse("PDS_RATE_LIMIT_PER_MINUTE", "300").toIntOption
         .filter(value => value >= 1 && value <= 100000)
         .toRight("PDS_RATE_LIMIT_PER_MINUTE must be between 1 and 100000")
+      turnstileSite = env.get("PDS_TURNSTILE_SITE_KEY").map(_.trim).filter(_.nonEmpty)
+      turnstileSecret = env.get("PDS_TURNSTILE_SECRET_KEY").map(_.trim).filter(_.nonEmpty)
+      _ <- Either.cond(turnstileSite.isDefined == turnstileSecret.isDefined, (),
+        "Set both PDS_TURNSTILE_SITE_KEY and PDS_TURNSTILE_SECRET_KEY")
+      turnstileHosts = env.getOrElse("PDS_TURNSTILE_HOSTNAMES", "").split(",").toSet.map(_.trim).filter(_.nonEmpty)
+      _ <- Either.cond(turnstileHosts.forall(validHostname), (),
+        "PDS_TURNSTILE_HOSTNAMES must contain DNS hostnames")
       retention <- env.getOrElse("PDS_FIREHOSE_RETENTION_HOURS", "72").toIntOption
         .filter(value => value >= 0 && value <= 8760)
         .toRight("PDS_FIREHOSE_RETENTION_HOURS must be between 0 and 8760")
@@ -140,7 +150,10 @@ object ServerConfig:
       webauthnRpId = env.get("PDS_WEBAUTHN_RP_ID")
         .map(_.trim.toLowerCase(Locale.ROOT)).filter(_.nonEmpty),
       webauthnOrigins = env.getOrElse("PDS_WEBAUTHN_ORIGINS", "")
-        .split(",").toVector.map(_.trim).filter(_.nonEmpty)
+        .split(",").toVector.map(_.trim).filter(_.nonEmpty),
+      turnstileSiteKey = turnstileSite,
+      turnstileSecretKey = turnstileSecret,
+      turnstileHostnames = turnstileHosts
     )
 
   private def flag(env: Map[String, String], name: String, default: Boolean): Boolean =

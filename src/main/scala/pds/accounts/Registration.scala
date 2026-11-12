@@ -20,7 +20,8 @@ final case class Registration(
     did: Option[String],
     recoveryKey: Option[String],
     verificationCode: Option[String],
-    serviceToken: Option[String] = None
+    serviceToken: Option[String] = None,
+    turnstileToken: Option[String] = None
 )
 
 object Register:
@@ -28,6 +29,7 @@ object Register:
 
   def run(env: Env, request: Registration): IO[Result] =
     for
+      _ <- pds.security.Turnstile.verify(env, request.turnstileToken)
       handle <- IO.fromEither(normalizeHandle(env, request.handle))
       email <- IO.fromEither(validateEmail(env, request))
       password <- IO.fromEither(validatePassword(request))

@@ -49,6 +49,7 @@ object ServerApi:
       "did" -> Json.fromString(env.config.serviceDid),
       "availableUserDomains" -> Json.arr(env.config.availableUserDomains.map(Json.fromString)*),
       "inviteCodeRequired" -> Json.fromBoolean(env.config.inviteRequired),
+      "turnstile" -> pds.security.Turnstile.describe(env),
       "phoneVerificationRequired" -> Json.False,
       "links" -> Json.obj(
         "privacyPolicy" -> env.config.privacyPolicyUrl.map(Json.fromString).getOrElse(Json.Null),
@@ -72,7 +73,8 @@ object ServerApi:
         did = Xrpc.field(body, "did"),
         recoveryKey = Xrpc.field(body, "recoveryKey"),
         verificationCode = Xrpc.field(body, "verificationCode"),
-        serviceToken = ServiceAuth.bearer(request)
+        serviceToken = ServiceAuth.bearer(request),
+        turnstileToken = Xrpc.field(body, "turnstileToken")
       ))
       response <- Xrpc.ok(Json.obj(
         "accessJwt" -> Json.fromString(created.tokens.accessJwt),

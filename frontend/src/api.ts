@@ -26,6 +26,7 @@ export type Session = {
   oauthSessions?: OAuthSession[];
   origin: string;
   "signup-enabled": boolean;
+  turnstile?: { siteKey: string; action: "signup" } | null;
   "email-enabled": boolean;
   "invite-required": boolean;
   "user-domain": string;
@@ -56,6 +57,8 @@ export const messages: Record<string, string> = {
   InvalidCsrf: "This page is stale. Reload it and try again.",
   InvalidToken: "That code is not valid. Check it and try again.",
   RateLimitExceeded: "Too many attempts. Wait a moment and try again.",
+  TurnstileFailed: "Complete the verification and try again.",
+  TurnstileUnavailable: "Signup verification is temporarily unavailable; try again.",
   AlreadySignedIn: "Sign out before choosing another account.",
   HandleNotAvailable: "That username, email, or account already exists.",
   InvalidInviteCode: "That invite code cannot be used.",
